@@ -438,24 +438,30 @@
                 connectWalletBtn.classList.add('hidden');
                 gameContainerEl.classList.remove('hidden');
                 
-                contract.on("GameStarted", (p1, p2) => {
-                    showMessage("Game started!");
-                    fetchGameState();
-                });
-                contract.on("MoveMade", (player, position, value) => {
-                    showMessage(`Player ${value === 1 ? 'X' : 'O'} made a move!`);
-                    fetchGameState();
-                });
-                contract.on("GameOver", (finalState) => {
-                    let winMsg = "Game Over!";
-                    if (finalState === 1) winMsg = "Player 1 Wins!";
-                    if (finalState === 2) winMsg = "Player 2 Wins!";
-                    if (finalState === 3) winMsg = "It's a draw!";
-                    showMessage(winMsg);
-                    fetchGameState();
-                });
+                // Note: Your contract's ABI does not contain event definitions,
+                // so these event listeners will not work and may cause an error.
+                // The frontend will rely on polling for updates instead.
+                // I have commented them out to prevent errors.
+                // contract.on("GameStarted", (p1, p2) => {
+                //     showMessage("Game started!");
+                //     fetchGameState();
+                // });
+                // contract.on("MoveMade", (player, position, value) => {
+                //     showMessage(`Player ${value === 1 ? 'X' : 'O'} made a move!`);
+                //     fetchGameState();
+                // });
+                // contract.on("GameOver", (finalState) => {
+                //     let winMsg = "Game Over!";
+                //     if (finalState === 1) winMsg = "Player 1 Wins!";
+                //     if (finalState === 2) winMsg = "Player 2 Wins!";
+                //     if (finalState === 3) winMsg = "It's a draw!";
+                //     showMessage(winMsg);
+                //     fetchGameState();
+                // });
 
+                // Initial fetch and then poll for updates every 3 seconds
                 fetchGameState();
+                setInterval(fetchGameState, 3000);
 
             } catch (err) {
                 console.error("Error in connectWallet:", err);
@@ -472,6 +478,7 @@
                 const tx = await contract.makeMove(parseInt(position));
                 showMessage("Transaction sent... waiting for confirmation.");
                 await tx.wait();
+                // The polling will handle the state update after the transaction
             } catch (err) {
                 console.error("Transaction failed:", err);
                 const reason = err.data?.message || err.message;
