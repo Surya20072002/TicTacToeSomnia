@@ -105,6 +105,27 @@
             </button>
         </div>
         
+        <!-- Wallet Connection Instructions -->
+        <div class="bg-gray-700 p-6 rounded-lg mt-8 shadow-inner text-sm text-gray-300">
+            <h3 class="text-lg font-bold text-gray-200 mb-2">Having trouble connecting your wallet?</h3>
+            <ol class="list-decimal list-inside space-y-2">
+                <li>Make sure your wallet extension (e.g., MetaMask, OKX Wallet) is **unlocked and active** in your browser.</li>
+                <li>**Refresh this page** and then click the "<span class="font-semibold">Connect Wallet</span>" button.</li>
+                <li>**Look for a pop-up from your wallet** asking for connection permission. You **must approve** this.</li>
+                <li>Ensure your wallet is manually set to the **Somnia Testnet** with these details:
+                    <ul class="list-disc list-inside ml-4 mt-1">
+                        <li>**Network Name:** Somnia Testnet</li>
+                        <li>**RPC URL:** `https://rpc.ankr.com/somnia_testnet`</li>
+                        <li>**Chain ID:** `50312`</li>
+                        <li>**Currency Symbol:** STT</li>
+                        <li>**Block Explorer URL:** `https://shannon-explorer.somnia.network/`</li>
+                    </ul>
+                </li>
+                <li>If you have multiple wallet extensions, try **disabling others** temporarily.</li>
+            </ol>
+            <p class="mt-4 text-gray-400">Your wallet handles the connection and network switching. This game cannot force these actions.</p>
+        </div>
+
         <!-- Credit line -->
         <div class="text-center mt-8 text-gray-400 text-sm">
             Created by <a href="https://x.com/Surya_xyz_" target="_blank" class="text-blue-400 hover:underline">Surya_xyz_</a>
@@ -359,8 +380,8 @@
                 // Attempt to connect wallet automatically on page load
                 connectWallet(true);
             } else {
-                showMessage('Please install MetaMask to play.', 'text-red-400');
-                startGameBtn.textContent = 'MetaMask Not Found';
+                showMessage('Please install MetaMask or a compatible wallet to play.', 'text-red-400');
+                startGameBtn.textContent = 'Wallet Not Found';
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
             }
@@ -397,10 +418,10 @@
         // --- WALLET FUNCTIONS ---
         const handleAccountsChanged = async (accounts) => {
             if (accounts.length === 0) {
-                console.log('Please connect to wallet.');
+                console.log('Wallet disconnected or no accounts selected.');
                 userAddress = null;
                 isWalletConnected = false;
-                showMessage('Wallet Not Connected.', 'text-red-400');
+                showMessage('Wallet Not Connected. Please connect.', 'text-red-400');
                 startGameBtn.textContent = 'Connect Wallet';
                 startGameBtn.disabled = true; // Disable until reconnected
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -425,7 +446,7 @@
 
             // Check if the current chain ID matches the required network
             if (window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
-                showMessage(`Please switch your wallet manually to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)}).`, 'text-red-400');
+                showMessage(`Please switch your wallet manually to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)}). Game disabled.`, 'text-red-400');
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 betButtons.forEach(btn => btn.disabled = true);
@@ -463,9 +484,11 @@
                     await handleAccountsChanged(accounts); // This will trigger network and game state checks
                 } catch (error) {
                     console.error('Wallet connection error:', error);
-                    // Check if the error is a user rejection (code 4001 for MetaMask)
+                    // Common error codes for user rejection or failure
                     if (error.code === 4001) {
                         showMessage('Wallet connection rejected by user. Please approve to play.', 'text-red-400');
+                    } else if (error.code === -32002) { // Request already pending (MetaMask specific)
+                        showMessage('Connection request already pending. Please check your wallet.', 'text-yellow-300');
                     } else if (!isAutoConnect) {
                         showMessage('Wallet connection failed. Please try again.', 'text-red-400');
                     } else {
