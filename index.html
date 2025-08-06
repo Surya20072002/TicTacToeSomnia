@@ -302,19 +302,6 @@
                 "type": "function"
             },
             {
-                "inputs": [],
-                "name": "owner",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
                 "inputs": [
                     {
                         "internalType": "address",
@@ -429,25 +416,26 @@
                     startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     startGameBtn.disabled = false;
                 }
-                setTimeout(checkNetwork, 500); // Add a small delay to ensure the network state is updated
+                setTimeout(checkNetworkAndGameState, 500); // Add a small delay for network and game state check
             }
         };
 
         const handleChainChanged = (chainId) => {
             console.log('Chain changed to:', chainId);
-            checkNetwork();
+            checkNetworkAndGameState();
         };
 
-        const checkNetwork = async () => {
+        const checkNetworkAndGameState = async () => {
             if (window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
                 showMessage(`Please switch to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)})`, 'text-red-400');
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: NETWORK_DETAILS.chainId }],
                     });
                 } catch (switchError) {
-                    // This error code indicates that the chain has not been added to MetaMask.
                     if (switchError.code === 4902) {
                         try {
                             await window.ethereum.request({
@@ -462,6 +450,8 @@
                 }
             } else {
                 showMessage(`Connected to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
+                // Now check the game state on the contract
+                await getContractGameState();
             }
         };
 
@@ -470,7 +460,6 @@
                 try {
                     provider = new ethers.providers.Web3Provider(window.ethereum);
                     signer = provider.getSigner();
-                    // Initialize contract instance
                     contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     handleAccountsChanged(accounts);
@@ -482,6 +471,43 @@
                 }
             }
         };
+
+        // --- CONTRACT STATE CHECK ---
+        const getContractGameState = async () => {
+            if (!contract) return; // Ensure contract is initialized
+
+            try {
+                const active = await contract.gameActive();
+                isGameActive = active;
+                if (isGameActive) {
+                    showMessage("A game is currently active on the contract. Finish it or wait for it to conclude.", 'text-red-400');
+                    startGameBtn.disabled = true;
+                    startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    betButtons.forEach(btn => btn.disabled = true);
+                    // Optionally, you could fetch the board state from the contract here
+                    // and display it to allow the user to continue the existing game.
+                    // For this simple example, we'll just prevent starting a new one.
+                } else {
+                    if (betAmount > 0) {
+                        startGameBtn.textContent = 'Start Game';
+                        startGameBtn.disabled = false;
+                        startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        startGameBtn.textContent = 'Select Bet';
+                        startGameBtn.disabled = false;
+                        startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                    betButtons.forEach(btn => btn.disabled = false);
+                    showMessage('Wallet connected. Select your bet to start.', 'text-green-400');
+                }
+            } catch (error) {
+                console.error("Error fetching contract game state:", error);
+                showMessage("Error fetching game state from contract. Please refresh.", 'text-red-400');
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        };
+
 
         // --- GAME LOGIC FUNCTIONS ---
         const createBoard = () => {
@@ -615,6 +641,13 @@
                 return;
             }
 
+            // Before starting, check contract state again to be sure
+            const contractGameActive = await contract.gameActive();
+            if (contractGameActive) {
+                showMessage("A game is already active on the contract. Cannot start a new one.", 'text-red-400');
+                return;
+            }
+
             showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
             
             try {
@@ -630,7 +663,7 @@
                 // Reset game state
                 boardState = ['', '', '', '', '', '', '', '', ''];
                 currentPlayer = 'X';
-                isGameActive = true;
+                isGameActive = true; // Set client-side game active after successful contract call
 
                 // Clear the board and remove disabled class
                 gameBoard.querySelectorAll('.cell').forEach(cell => {
@@ -649,7 +682,12 @@
 
             } catch (error) {
                 console.error("Error starting game or placing bet:", error);
-                showMessage(`Failed to place bet. ${error.message || 'Transaction rejected.'}`, 'text-red-400');
+                // Check if the error is due to "Game is already active"
+                if (error.data && error.data.originalError && error.data.originalError.data && error.data.originalError.data.includes("Game is already active")) {
+                    showMessage("Failed to place bet: A game is already active on the contract. Please refresh to sync.", 'text-red-400');
+                } else {
+                    showMessage(`Failed to place bet. ${error.message || 'Transaction rejected.'}`, 'text-red-400');
+                }
                 // Re-enable buttons if transaction fails
                 startGameBtn.disabled = false;
                 startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -658,7 +696,7 @@
         };
 
         const endGame = async (message, winnerAddress, isDraw) => {
-            isGameActive = false;
+            isGameActive = false; // Set client-side game inactive before contract call
             showMessage(message, 'text-green-400');
             // Disable all cells
             gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
