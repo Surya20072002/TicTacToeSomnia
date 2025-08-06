@@ -232,7 +232,7 @@
                     startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     startGameBtn.disabled = false;
                 }
-                checkNetwork();
+                setTimeout(checkNetwork, 500); // Add a small delay to ensure the network state is updated
             }
         };
 
