@@ -361,10 +361,8 @@
                 window.ethereum.on('accountsChanged', handleAccountsChanged);
                 // Listen for network changes
                 window.ethereum.on('chainChanged', handleChainChanged);
-                // Try to connect automatically if already connected
-                connectWallet(true);
                 // Initial message to the user
-                showMessage('Connect your wallet and select a bet to start.', 'text-yellow-300');
+                showMessage('Connect your wallet to play.', 'text-yellow-300');
             } else {
                 showMessage('Please install MetaMask to play.', 'text-red-400');
                 startGameBtn.textContent = 'MetaMask Not Found';
@@ -375,7 +373,7 @@
             // Set up event listener for the start button
             startGameBtn.addEventListener('click', () => {
                 if (!isWalletConnected) {
-                    connectWallet();
+                    connectWallet(); // Directly connect wallet on click
                 } else if (betAmount > 0) {
                     startGame();
                 } else {
@@ -403,7 +401,7 @@
         };
 
         // --- WALLET FUNCTIONS ---
-        const handleAccountsChanged = (accounts) => {
+        const handleAccountsChanged = async (accounts) => {
             if (accounts.length === 0) {
                 console.log('Please connect to MetaMask.');
                 userAddress = null;
@@ -416,17 +414,9 @@
             } else {
                 userAddress = accounts[0];
                 isWalletConnected = true;
-                showMessage(`Connected to wallet.`, 'text-green-400');
-                if (betAmount > 0) {
-                    startGameBtn.textContent = 'Start Game';
-                    startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    startGameBtn.disabled = false;
-                } else {
-                    startGameBtn.textContent = 'Select Bet';
-                    startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    startGameBtn.disabled = false;
-                }
-                setTimeout(checkNetworkAndGameState, 500); // Add a small delay for network and game state check
+                showMessage(`Wallet connected: ${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}.`, 'text-green-400');
+                // After account change, ensure network and game state are checked
+                await checkNetworkAndGameState();
             }
         };
 
@@ -436,33 +426,56 @@
         };
 
         const checkNetworkAndGameState = async () => {
+            if (!window.ethereum) return; // Ensure ethereum object exists
+
+            // Attempt to switch/add network silently
             if (window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
-                showMessage(`Please switch to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)})`, 'text-red-400');
-                startGameBtn.disabled = true;
-                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                forceEndGameBtn.classList.add('hidden'); // Hide force end game button
+                showMessage(`Attempting to switch to ${NETWORK_DETAILS.chainName}... Please confirm in your wallet.`, 'text-yellow-300');
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: NETWORK_DETAILS.chainId }],
                     });
+                    showMessage(`Switched to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
                 } catch (switchError) {
                     if (switchError.code === 4902) {
+                        // Chain not added, try adding it
                         try {
                             await window.ethereum.request({
                                 method: 'wallet_addEthereumChain',
                                 params: [NETWORK_DETAILS],
                             });
+                            showMessage(`Added and switched to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
                         } catch (addError) {
-                            console.error(addError);
+                            console.error("Error adding network:", addError);
+                            showMessage(`Failed to add/switch to ${NETWORK_DETAILS.chainName}. Please do so manually in MetaMask.`, 'text-red-400');
+                            startGameBtn.disabled = true;
+                            startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                            forceEndGameBtn.classList.add('hidden');
+                            return; // Exit if network cannot be set
                         }
+                    } else {
+                        console.error("Error switching network:", switchError);
+                        showMessage(`Failed to switch to ${NETWORK_DETAILS.chainName}. Please do so manually in MetaMask.`, 'text-red-400');
+                        startGameBtn.disabled = true;
+                        startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        forceEndGameBtn.classList.add('hidden');
+                        return; // Exit if network cannot be set
                     }
-                    console.error(switchError);
                 }
             } else {
                 showMessage(`Connected to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
-                // Now check the game state on the contract
+            }
+            
+            // Now check the game state on the contract, only if wallet is connected and on correct network
+            if (isWalletConnected && window.ethereum.chainId === NETWORK_DETAILS.chainId) {
                 await getContractGameState();
+            } else {
+                // If not connected or not on correct network, disable game start
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                betButtons.forEach(btn => btn.disabled = true);
+                forceEndGameBtn.classList.add('hidden');
             }
         };
 
@@ -473,11 +486,11 @@
                     signer = provider.getSigner();
                     contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    handleAccountsChanged(accounts);
+                    handleAccountsChanged(accounts); // This will now trigger network and game state checks
                 } catch (error) {
                     console.error('User rejected connection:', error);
                     if (!isAutoConnect) {
-                        showMessage('Wallet connection rejected.', 'text-red-400');
+                        showMessage('Wallet connection rejected. Please connect to play.', 'text-red-400');
                     }
                 }
             }
@@ -485,7 +498,7 @@
 
         // --- CONTRACT STATE CHECK ---
         const getContractGameState = async () => {
-            if (!contract) return; // Ensure contract is initialized
+            if (!contract || !isWalletConnected) return; // Ensure contract and wallet are initialized
 
             try {
                 const active = await contract.gameActive();
@@ -512,7 +525,7 @@
                 }
             } catch (error) {
                 console.error("Error fetching contract game state:", error);
-                showMessage("Error fetching game state from contract. Please refresh.", 'text-red-400');
+                showMessage("Error fetching game state from contract. Please refresh or check network.", 'text-red-400');
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 forceEndGameBtn.classList.add('hidden'); // Hide force end game button on error
