@@ -113,8 +113,7 @@
             <h3 id="modalTitle" class="text-2xl font-bold text-center text-white mb-4"></h3>
             <p id="modalMessage" class="text-center text-gray-300 mb-6"></p>
             <div id="modalDetails" class="bg-gray-700 p-4 rounded-md text-sm text-gray-400 hidden">
-                <p class="font-bold text-white mb-2">Simulated Transaction:</p>
-                <p>Status: <span class="text-green-400">Success</span></p>
+                <p class="font-bold text-white mb-2">Transaction Status: <span id="txStatus"></span></p>
                 <p>Value: <span id="txValue"></span></p>
             </div>
             <div class="flex justify-center mt-6">
@@ -141,6 +140,202 @@
             [0, 4, 8], [2, 4, 6]             // Diagonals
         ];
 
+        // --- SMART CONTRACT DETAILS ---
+        const CONTRACT_ADDRESS = "0x68E6C08C47542cA2db00443E987273A6270e4568";
+        const CONTRACT_ABI = [
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "_winner",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "_isDraw",
+                        "type": "bool"
+                    }
+                ],
+                "name": "endGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "player",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "betAmount",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "outcome",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "payoutAmount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "GameResult",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_index",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "_marker",
+                        "type": "string"
+                    }
+                ],
+                "name": "makeMove",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_betAmount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "startGame",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "stateMutability": "payable",
+                "type": "fallback"
+            },
+            {
+                "inputs": [],
+                "name": "withdrawFunds",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "stateMutability": "payable",
+                "type": "receive"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "board",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "currentBetAmount",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "currentPlayer",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "gameActive",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "playerBalances",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+
         // --- DOM ELEMENTS ---
         const gameBoard = document.getElementById('game-board');
         const messageBox = document.getElementById('message-box');
@@ -151,12 +346,14 @@
         const modalMessage = document.getElementById('modalMessage');
         const modalDetails = document.getElementById('modalDetails');
         const txValue = document.getElementById('txValue');
+        const txStatus = document.getElementById('txStatus'); // Added for transaction status
         const closeModalBtn = document.getElementById('closeModalBtn');
 
         // --- GAME STATE VARIABLES ---
         let provider;
         let signer;
         let userAddress;
+        let contract; // Ethers.js Contract instance
         let boardState = ['', '', '', '', '', '', '', '', ''];
         let currentPlayer = 'X'; // Player is always 'X'
         let isGameActive = false;
@@ -271,9 +468,11 @@
         const connectWallet = async (isAutoConnect = false) => {
             if (window.ethereum) {
                 try {
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     provider = new ethers.providers.Web3Provider(window.ethereum);
                     signer = provider.getSigner();
+                    // Initialize contract instance
+                    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     handleAccountsChanged(accounts);
                 } catch (error) {
                     console.error('User rejected connection:', error);
@@ -307,13 +506,11 @@
                 cell.classList.add(`cell-${currentPlayer.toLowerCase()}`, 'disabled');
 
                 if (checkWin()) {
-                    endGame(`${currentPlayer} wins!`);
-                    showResultModal(`${currentPlayer} wins!`, 'Congratulations! You won your bet back plus a payout.', true);
+                    endGame(`${currentPlayer} wins!`, userAddress, false); // Pass winner address
                     return;
                 }
                 if (checkDraw()) {
-                    endGame(`It's a draw!`);
-                    showResultModal("It's a draw!", 'Your bet is returned in a draw. No winnings or losses.', false, true);
+                    endGame(`It's a draw!`, ethers.constants.AddressZero, true); // Pass zero address for draw
                     return;
                 }
 
@@ -384,13 +581,11 @@
             cell.classList.add('cell-o', 'disabled');
 
             if (checkWin()) {
-                endGame('Computer wins!');
-                showResultModal("Computer wins!", 'You lost your bet. Better luck next time!', false);
+                endGame('Computer wins!', ethers.constants.AddressZero, false); // Computer wins, no specific winner address for loss
                 return;
             }
             if (checkDraw()) {
-                endGame(`It's a draw!`);
-                showResultModal("It's a draw!", 'Your bet is returned in a draw. No winnings or losses.', false, true);
+                endGame(`It's a draw!`, ethers.constants.AddressZero, true);
                 return;
             }
 
@@ -426,34 +621,49 @@
                 return;
             }
 
-            // Simulate the betting transaction
-            showMessage(`Bet of ${betAmount} STT placed. Game starting...`, 'text-yellow-300');
+            showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
             
-            // Wait for a moment to simulate a transaction taking time
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            try {
+                // Convert betAmount to Wei (or smallest unit of STT)
+                const valueInWei = ethers.utils.parseEther(betAmount.toString());
 
-            // Reset game state
-            boardState = ['', '', '', '', '', '', '', '', ''];
-            currentPlayer = 'X';
-            isGameActive = true;
+                // Call the startGame function on the smart contract
+                const tx = await contract.startGame(valueInWei, { value: valueInWei });
+                showMessage("Transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait(); // Wait for the transaction to be mined
+                showMessage(`Bet of ${betAmount} STT placed. Game starting...`, 'text-green-400');
 
-            // Clear the board and remove disabled class
-            gameBoard.querySelectorAll('.cell').forEach(cell => {
-                cell.textContent = '';
-                cell.classList.remove('cell-x', 'cell-o', 'disabled');
-            });
-            
-            showMessage("Game started! Your turn...", 'text-gray-200');
-            
-            // Disable start button during the game
-            startGameBtn.disabled = true;
-            startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            
-            // Disable bet buttons during the game
-            betButtons.forEach(btn => btn.disabled = true);
+                // Reset game state
+                boardState = ['', '', '', '', '', '', '', '', ''];
+                currentPlayer = 'X';
+                isGameActive = true;
+
+                // Clear the board and remove disabled class
+                gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('cell-x', 'cell-o', 'disabled');
+                });
+                
+                showMessage("Game started! Your turn...", 'text-gray-200');
+                
+                // Disable start button during the game
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                // Disable bet buttons during the game
+                betButtons.forEach(btn => btn.disabled = true);
+
+            } catch (error) {
+                console.error("Error starting game or placing bet:", error);
+                showMessage(`Failed to place bet. ${error.message || 'Transaction rejected.'}`, 'text-red-400');
+                // Re-enable buttons if transaction fails
+                startGameBtn.disabled = false;
+                startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                betButtons.forEach(btn => btn.disabled = false);
+            }
         };
 
-        const endGame = (message) => {
+        const endGame = async (message, winnerAddress, isDraw) => {
             isGameActive = false;
             showMessage(message, 'text-green-400');
             // Disable all cells
@@ -466,6 +676,33 @@
 
             // Re-enable bet buttons
             betButtons.forEach(btn => btn.disabled = false);
+
+            showMessage("Ending game and processing payout...", 'text-yellow-300');
+            try {
+                // Call the endGame function on the smart contract
+                const tx = await contract.endGame(winnerAddress, isDraw);
+                showMessage("Payout transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait(); // Wait for the transaction to be mined
+
+                let outcomeText = '';
+                let payoutValue = 0;
+                if (isDraw) {
+                    outcomeText = 'Draw';
+                    payoutValue = betAmount; // Bet returned
+                } else if (winnerAddress === userAddress) { // Assuming user is the 'X' player
+                    outcomeText = 'Win';
+                    payoutValue = betAmount * 2; // Double payout
+                } else {
+                    outcomeText = 'Loss';
+                    payoutValue = -betAmount; // Lost bet
+                }
+
+                showResultModal(`${outcomeText}!`, `Game concluded. Check your wallet for ${payoutValue.toFixed(2)} STT.`, true, payoutValue); // Pass payoutValue
+                
+            } catch (error) {
+                console.error("Error ending game or processing payout:", error);
+                showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Check console for details.'}`, false, 0); // Indicate failure
+            }
         };
         
         const setBet = (amount, button) => {
@@ -487,23 +724,22 @@
             messageBox.className = `min-h-[50px] text-center text-lg font-semibold mb-6 ${colorClass}`;
         };
 
-        const showResultModal = (title, message, isWin, isDraw = false) => {
+        const showResultModal = (title, message, isSuccess, transactionValue) => {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             
-            // Update transaction details based on outcome
-            if (isWin) {
-                const winnings = betAmount * 2; // Simple double-or-nothing payout
-                txValue.textContent = `+${winnings.toFixed(2)} STT`;
-                modalDetails.classList.remove('hidden');
-            } else if (isDraw) {
-                txValue.textContent = `+${betAmount.toFixed(2)} STT (bet returned)`;
-                modalDetails.classList.remove('hidden');
+            if (isSuccess) {
+                txStatus.textContent = 'Success';
+                txStatus.classList.remove('text-red-400');
+                txStatus.classList.add('text-green-400');
+                txValue.textContent = `${transactionValue >= 0 ? '+' : ''}${transactionValue.toFixed(2)} STT`;
             } else {
-                txValue.textContent = `-${betAmount.toFixed(2)} STT`;
-                modalDetails.classList.remove('hidden');
+                txStatus.textContent = 'Failed';
+                txStatus.classList.remove('text-green-400');
+                txStatus.classList.add('text-red-400');
+                txValue.textContent = 'N/A'; // Or specific error value if applicable
             }
-
+            modalDetails.classList.remove('hidden');
             resultModal.classList.remove('hidden');
         };
 
