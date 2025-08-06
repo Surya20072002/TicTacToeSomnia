@@ -139,6 +139,63 @@
                 "type": "constructor"
             },
             {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "p1",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "p2",
+                        "type": "address"
+                    }
+                ],
+                "name": "GameStarted",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": false,
+                        "internalType": "uint8",
+                        "name": "finalState",
+                        "type": "uint8"
+                    }
+                ],
+                "name": "GameOver",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "player",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint8",
+                        "name": "position",
+                        "type": "uint8"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint8",
+                        "name": "value",
+                        "type": "uint8"
+                    }
+                ],
+                "name": "MoveMade",
+                "type": "event"
+            },
+            {
                 "inputs": [
                     {
                         "internalType": "uint256",
@@ -368,7 +425,6 @@
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 const network = await provider.getNetwork();
 
-                // Check for the correct network chain ID
                 if (network.chainId !== SOMNIA_CHAIN_ID) {
                     throw new Error(`Please switch to the Somnia Testnet (Chain ID: ${SOMNIA_CHAIN_ID}).`);
                 }
