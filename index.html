@@ -109,21 +109,133 @@
 
     <script>
         // --- CONFIGURATION ---
-        // NOTE: Remember to replace this with your deployed contract address.
-        const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE";
+        // Updated with your provided contract address.
+        const CONTRACT_ADDRESS = "0xC2EF20399F24F74E23CeE8acCD2D56C9528BECb7";
         
-        // ABI derived from the final working Solidity contract.
+        // Updated with your provided ABI.
         const contractABI = [
-            "function board(uint256) view returns (uint8)",
-            "function currentPlayer() view returns (address)",
-            "function gameState() view returns (uint8)",
-            "function player1() view returns (address)",
-            "function player2() view returns (address)",
-            "function joinGame() external",
-            "function makeMove(uint8 position) external",
-            "event GameStarted(address indexed p1, address indexed p2)",
-            "event MoveMade(address indexed player, uint8 position, uint8 value)",
-            "event GameOver(uint8 finalState)"
+            {
+                "inputs": [],
+                "name": "joinGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint8",
+                        "name": "position",
+                        "type": "uint8"
+                    }
+                ],
+                "name": "makeMove",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "board",
+                "outputs": [
+                    {
+                        "internalType": "uint8",
+                        "name": "",
+                        "type": "uint8"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "checkWinner",
+                "outputs": [
+                    {
+                        "internalType": "uint8",
+                        "name": "",
+                        "type": "uint8"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "currentPlayer",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "gameActive",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getBoard",
+                "outputs": [
+                    {
+                        "internalType": "uint8[9]",
+                        "name": "",
+                        "type": "uint8[9]"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "player1",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "player2",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
         ];
 
         // --- DOM ELEMENTS ---
@@ -141,17 +253,9 @@
         // --- GAME STATE VARIABLES ---
         let provider, signer, contract;
         let userAccount;
-        let currentGameState;
+        let isGameActive;
+        let winner;
         let currentPlayerAddress;
-
-        // GameState enum mapping for readability
-        const GameState = {
-            WaitingForPlayer: 0,
-            InProgress: 1,
-            Player1Wins: 2,
-            Player2Wins: 3,
-            Draw: 4,
-        };
 
         // --- HELPER FUNCTIONS ---
         // Displays a message to the user in the UI.
@@ -176,24 +280,25 @@
             }
 
             try {
-                // Fetch the board state
-                const boardPromises = [...Array(9).keys()].map(i => contract.board(i));
-                const board = await Promise.all(boardPromises);
+                // Fetch the board state using getBoard()
+                const board = await contract.getBoard();
 
                 // Fetch other game state variables
-                const [state, current, p1, p2] = await Promise.all([
-                    contract.gameState(),
+                const [active, winnerValue, current, p1, p2] = await Promise.all([
+                    contract.gameActive(),
+                    contract.checkWinner(),
                     contract.currentPlayer(),
                     contract.player1(),
                     contract.player2()
                 ]);
 
-                currentGameState = Number(state);
+                isGameActive = active;
+                winner = Number(winnerValue);
                 currentPlayerAddress = current;
 
                 // Update UI based on fetched data
                 renderBoard(board.map(Number));
-                updateStatus(state, current, p1, p2);
+                updateStatus(isGameActive, winner, current, p1, p2, board.map(Number));
                 updatePlayerInfo(p1, p2);
 
             } catch (err) {
@@ -218,37 +323,35 @@
                     cell.classList.add('player-2');
                 }
                 
-                // Enable cells only if it's the current player's turn and the spot is empty
-                if (currentGameState === GameState.InProgress && 
-                    currentPlayerAddress.toLowerCase() === userAccount.toLowerCase() && 
-                    board[i] === 0) {
+                // Enable cells only if it's the current player's turn, game is active, and the spot is empty
+                if (isGameActive && winner === 0 && currentPlayerAddress.toLowerCase() === userAccount.toLowerCase() && board[i] === 0) {
                     cell.disabled = false;
                 }
             });
         }
 
         // Updates the status message for the user.
-        function updateStatus(state, current, p1, p2) {
+        function updateStatus(active, winnerValue, current, p1, p2, board) {
             let statusText = "Please connect your wallet.";
             joinGameBtn.classList.add('hidden');
 
-            if (state == GameState.WaitingForPlayer) {
+            if (winnerValue === 1) {
+                statusText = "❌ Player 1 wins!";
+            } else if (winnerValue === 2) {
+                statusText = "⭕ Player 2 wins!";
+            } else if (!active && board.every(c => c !== 0)) {
+                statusText = "🤝 It's a draw!";
+            } else if (!active) {
                 statusText = "Waiting for another player to join...";
                 if (userAccount && p1 && p1.toLowerCase() !== userAccount.toLowerCase()) {
                     joinGameBtn.classList.remove('hidden');
                 }
-            } else if (state == GameState.InProgress) {
+            } else if (active) {
                 if (current.toLowerCase() === userAccount.toLowerCase()) {
                     statusText = "🎯 Your Turn";
                 } else {
                     statusText = "⏳ Waiting for Opponent";
                 }
-            } else if (state == GameState.Player1Wins) {
-                statusText = "❌ Player 1 wins!";
-            } else if (state == GameState.Player2Wins) {
-                statusText = "⭕ Player 2 wins!";
-            } else if (state == GameState.Draw) {
-                statusText = "🤝 It's a draw!";
             }
             statusMessage.textContent = statusText;
         }
@@ -275,7 +378,6 @@
             }
 
             try {
-                // Request account access
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 userAccount = accounts[0];
                 accountAddressEl.textContent = `${userAccount.substring(0, 6)}...${userAccount.substring(userAccount.length - 4)}`;
@@ -300,14 +402,13 @@
                 });
                 contract.on("GameOver", (finalState) => {
                     let winMsg = "Game Over!";
-                    if (finalState === GameState.Player1Wins) winMsg = "Player 1 Wins!";
-                    if (finalState === GameState.Player2Wins) winMsg = "Player 2 Wins!";
-                    if (finalState === GameState.Draw) winMsg = "It's a draw!";
+                    if (finalState === 1) winMsg = "Player 1 Wins!";
+                    if (finalState === 2) winMsg = "Player 2 Wins!";
+                    if (finalState === 3) winMsg = "It's a draw!";
                     showMessage(winMsg);
                     fetchGameState();
                 });
 
-                // Fetch initial game state
                 fetchGameState();
 
             } catch (err) {
@@ -318,7 +419,7 @@
 
         // Handles a cell click to make a move on the contract.
         async function handleMove(event) {
-            if (!contract || currentGameState !== GameState.InProgress) return;
+            if (!contract || !isGameActive) return;
             const position = event.target.dataset.index;
             
             try {
