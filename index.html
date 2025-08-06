@@ -109,10 +109,9 @@
 
     <script>
         // --- CONFIGURATION ---
-        // Updated with your provided contract address.
         const CONTRACT_ADDRESS = "0xC2EF20399F24F74E23CeE8acCD2D56C9528BECb7";
-        
-        // Updated with your provided ABI.
+        const SOMNIA_CHAIN_ID = 50312; // Chain ID for Somnia Testnet
+
         const contractABI = [
             {
                 "inputs": [],
@@ -258,7 +257,6 @@
         let currentPlayerAddress;
 
         // --- HELPER FUNCTIONS ---
-        // Displays a message to the user in the UI.
         function showMessage(message, isError = false) {
             messageContainerEl.textContent = message;
             messageContainerEl.classList.remove('hidden');
@@ -271,19 +269,14 @@
             }
         }
 
-        // Asynchronously fetches the latest game state from the blockchain.
         async function fetchGameState() {
-            // Check if the contract object is initialized before making calls
             if (!contract) {
                 console.warn("Contract not initialized. Skipping state fetch.");
                 return;
             }
 
             try {
-                // Fetch the board state using getBoard()
                 const board = await contract.getBoard();
-
-                // Fetch other game state variables
                 const [active, winnerValue, current, p1, p2] = await Promise.all([
                     contract.gameActive(),
                     contract.checkWinner(),
@@ -296,7 +289,6 @@
                 winner = Number(winnerValue);
                 currentPlayerAddress = current;
 
-                // Update UI based on fetched data
                 renderBoard(board.map(Number));
                 updateStatus(isGameActive, winner, current, p1, p2, board.map(Number));
                 updatePlayerInfo(p1, p2);
@@ -307,13 +299,12 @@
             }
         }
 
-        // Renders the board based on the game state.
         function renderBoard(board) {
             const cells = gameBoard.querySelectorAll('.cell');
             cells.forEach((cell, i) => {
                 cell.textContent = "";
                 cell.classList.remove('player-1', 'player-2');
-                cell.disabled = true; // Disable all cells by default
+                cell.disabled = true;
 
                 if (board[i] === 1) {
                     cell.textContent = "❌";
@@ -323,14 +314,12 @@
                     cell.classList.add('player-2');
                 }
                 
-                // Enable cells only if it's the current player's turn, game is active, and the spot is empty
                 if (isGameActive && winner === 0 && currentPlayerAddress.toLowerCase() === userAccount.toLowerCase() && board[i] === 0) {
                     cell.disabled = false;
                 }
             });
         }
 
-        // Updates the status message for the user.
         function updateStatus(active, winnerValue, current, p1, p2, board) {
             let statusText = "Please connect your wallet.";
             joinGameBtn.classList.add('hidden');
@@ -356,7 +345,6 @@
             statusMessage.textContent = statusText;
         }
 
-        // Updates the player addresses displayed on the UI.
         function updatePlayerInfo(p1, p2) {
             accountInfoEl.classList.remove('hidden');
             if (p1) {
@@ -369,8 +357,6 @@
             }
         }
 
-        // --- EVENT HANDLERS ---
-        // Connects to MetaMask and sets up the contract instance.
         async function connectWallet() {
             if (typeof window.ethereum === 'undefined') {
                 showMessage("MetaMask is not installed. Please install it to play.", true);
@@ -378,20 +364,24 @@
             }
 
             try {
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                userAccount = accounts[0];
-                accountAddressEl.textContent = `${userAccount.substring(0, 6)}...${userAccount.substring(userAccount.length - 4)}`;
-
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
                 provider = new ethers.providers.Web3Provider(window.ethereum);
+                const network = await provider.getNetwork();
+
+                // Check for the correct network chain ID
+                if (network.chainId !== SOMNIA_CHAIN_ID) {
+                    throw new Error(`Please switch to the Somnia Testnet (Chain ID: ${SOMNIA_CHAIN_ID}).`);
+                }
+
                 signer = provider.getSigner();
+                userAccount = await signer.getAddress();
+                accountAddressEl.textContent = `${userAccount.substring(0, 6)}...${userAccount.substring(userAccount.length - 4)}`;
                 
                 contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
                 
-                // Hide connect button, show game UI
                 connectWalletBtn.classList.add('hidden');
                 gameContainerEl.classList.remove('hidden');
                 
-                // Set up event listeners for real-time updates
                 contract.on("GameStarted", (p1, p2) => {
                     showMessage("Game started!");
                     fetchGameState();
@@ -413,11 +403,11 @@
 
             } catch (err) {
                 console.error("Error in connectWallet:", err);
-                showMessage("Failed to connect. Check console and make sure MetaMask is on the Somnia Testnet.", true);
+                const errorMessage = err.message || "An error occurred.";
+                showMessage(errorMessage, true);
             }
         }
 
-        // Handles a cell click to make a move on the contract.
         async function handleMove(event) {
             if (!contract || !isGameActive) return;
             const position = event.target.dataset.index;
@@ -433,7 +423,6 @@
             }
         }
         
-        // Handles a player joining the game.
         async function handleJoinGame() {
             if (!contract) return;
             try {
@@ -448,7 +437,6 @@
             }
         }
 
-        // --- EVENT LISTENERS ---
         document.addEventListener('DOMContentLoaded', () => {
             connectWalletBtn.addEventListener('click', connectWallet);
             gameBoard.addEventListener('click', handleMove);
