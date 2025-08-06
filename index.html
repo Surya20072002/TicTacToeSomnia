@@ -564,12 +564,14 @@
         // Add event listener to the "Connect Wallet" button
         connectWalletBtn.addEventListener('click', connectWallet);
 
-        // Call this once on page load to check for existing connections
+        // Remove the automatic connection attempt on page load
+        /*
         window.addEventListener('load', () => {
             if (typeof window.ethereum !== 'undefined' && window.ethereum.selectedAddress) {
                 connectWallet();
             }
         });
+        */
 
     </script>
 </body>
