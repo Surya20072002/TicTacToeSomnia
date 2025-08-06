@@ -338,9 +338,9 @@
         const modalMessage = document.getElementById('modalMessage');
         const modalDetails = document.getElementById('modalDetails');
         const txValue = document.getElementById('txValue');
-        const txStatus = document.getElementById('txStatus'); // Correctly referenced txStatus
+        const txStatus = document.getElementById('txStatus');
         const closeModalBtn = document.getElementById('closeModalBtn');
-        const forceEndGameBtn = document.getElementById('forceEndGameBtn'); // New button element
+        const forceEndGameBtn = document.getElementById('forceEndGameBtn');
 
         // --- GAME STATE VARIABLES ---
         let provider;
@@ -355,14 +355,10 @@
 
         // --- EVENT LISTENERS ---
         window.onload = () => {
-            // Check for MetaMask on page load and set up the initial state
             if (window.ethereum) {
-                // Listen for account changes
                 window.ethereum.on('accountsChanged', handleAccountsChanged);
-                // Listen for network changes
                 window.ethereum.on('chainChanged', handleChainChanged);
-                // Attempt to connect wallet automatically on page load
-                connectWallet(true); // Added this line
+                connectWallet(true); // Attempt to connect wallet automatically on page load
             } else {
                 showMessage('Please install MetaMask to play.', 'text-red-400');
                 startGameBtn.textContent = 'MetaMask Not Found';
@@ -370,10 +366,9 @@
                 startGameBtn.classList.add('cursor-not-allowed', 'opacity-50');
             }
 
-            // Set up event listener for the start button
             startGameBtn.addEventListener('click', () => {
                 if (!isWalletConnected) {
-                    connectWallet(); // Directly connect wallet on click
+                    connectWallet();
                 } else if (betAmount > 0) {
                     startGame();
                 } else {
@@ -381,7 +376,6 @@
                 }
             });
 
-            // Set up event listeners for bet buttons
             betButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     const amount = parseFloat(button.getAttribute('data-bet'));
@@ -389,12 +383,10 @@
                 });
             });
 
-            // Set up event listener for closing the modal
             closeModalBtn.addEventListener('click', () => {
                 resultModal.classList.add('hidden');
             });
 
-            // New: Event listener for Force End Game button
             forceEndGameBtn.addEventListener('click', forceEndGame);
 
             createBoard();
@@ -408,15 +400,15 @@
                 isWalletConnected = false;
                 showMessage('Wallet Not Connected.', 'text-red-400');
                 startGameBtn.textContent = 'Connect Wallet';
+                startGameBtn.disabled = true; // Disable until reconnected
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                startGameBtn.disabled = true;
-                forceEndGameBtn.classList.add('hidden'); // Hide force end game button
+                betButtons.forEach(btn => btn.disabled = true); // Disable bet buttons
+                forceEndGameBtn.classList.add('hidden');
             } else {
                 userAddress = accounts[0];
                 isWalletConnected = true;
                 showMessage(`Wallet connected: ${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}.`, 'text-green-400');
-                // After account change, ensure network and game state are checked
-                await checkNetworkAndGameState();
+                await checkNetworkAndGameState(); // Re-check network and game state
             }
         };
 
@@ -426,7 +418,7 @@
         };
 
         const checkNetworkAndGameState = async () => {
-            if (!window.ethereum) return; // Ensure ethereum object exists
+            if (!window.ethereum) return;
 
             // Attempt to switch/add network silently
             if (window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
@@ -439,7 +431,6 @@
                     showMessage(`Switched to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
                 } catch (switchError) {
                     if (switchError.code === 4902) {
-                        // Chain not added, try adding it
                         try {
                             await window.ethereum.request({
                                 method: 'wallet_addEthereumChain',
@@ -451,29 +442,28 @@
                             showMessage(`Failed to add/switch to ${NETWORK_DETAILS.chainName}. Please do so manually in your wallet.`, 'text-red-400');
                             startGameBtn.disabled = true;
                             startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                            betButtons.forEach(btn => btn.disabled = true); // Disable bet buttons
+                            betButtons.forEach(btn => btn.disabled = true);
                             forceEndGameBtn.classList.add('hidden');
-                            return; // Exit if network cannot be set
+                            return;
                         }
                     } else {
                         console.error("Error switching network:", switchError);
                         showMessage(`Failed to switch to ${NETWORK_DETAILS.chainName}. Please do so manually in your wallet.`, 'text-red-400');
                         startGameBtn.disabled = true;
                         startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                        betButtons.forEach(btn => btn.disabled = true); // Disable bet buttons
+                        betButtons.forEach(btn => btn.disabled = true);
                         forceEndGameBtn.classList.add('hidden');
-                        return; // Exit if network cannot be set
+                        return;
                     }
                 }
             } else {
                 showMessage(`Connected to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
             }
             
-            // Now check the game state on the contract, only if wallet is connected and on correct network
+            // Only proceed to get contract state if wallet is connected AND on the correct network
             if (isWalletConnected && window.ethereum.chainId === NETWORK_DETAILS.chainId) {
                 await getContractGameState();
             } else {
-                // If not connected or not on correct network, disable game start
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 betButtons.forEach(btn => btn.disabled = true);
@@ -483,9 +473,8 @@
 
         const connectWallet = async (isAutoConnect = false) => {
             if (window.ethereum) {
-                // Immediately indicate connecting state
                 startGameBtn.textContent = 'Connecting Wallet...';
-                startGameBtn.disabled = true; // Disable button during connection attempt
+                startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 showMessage('Waiting for wallet connection...', 'text-yellow-300');
 
@@ -494,28 +483,34 @@
                     signer = provider.getSigner();
                     contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    // If accounts are retrieved, proceed to handle them
-                    await handleAccountsChanged(accounts); // This will now trigger network and game state checks
+                    await handleAccountsChanged(accounts); // This will trigger network and game state checks
                 } catch (error) {
                     console.error('Wallet connection error:', error);
                     if (!isAutoConnect) {
                         showMessage('Wallet connection rejected or failed. Please try again.', 'text-red-400');
                     } else {
-                        showMessage('Please connect your wallet to play.', 'text-yellow-300'); // For auto-connect failure
+                        showMessage('Please connect your wallet to play.', 'text-yellow-300');
                     }
-                    // Revert button state on failure
                     startGameBtn.textContent = 'Connect Wallet';
                     startGameBtn.disabled = false;
                     startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    isWalletConnected = false; // Ensure state is false
-                    betButtons.forEach(btn => btn.disabled = false); // Re-enable bet buttons
+                    isWalletConnected = false;
+                    betButtons.forEach(btn => btn.disabled = false);
+                    forceEndGameBtn.classList.add('hidden'); // Ensure hidden on connection failure
                 }
             }
         };
 
         // --- CONTRACT STATE CHECK ---
         const getContractGameState = async () => {
-            if (!contract || !isWalletConnected) return; // Ensure contract and wallet are initialized
+            if (!contract || !isWalletConnected) {
+                // Ensure buttons are disabled if contract or wallet not ready
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                betButtons.forEach(btn => btn.disabled = true);
+                forceEndGameBtn.classList.add('hidden');
+                return;
+            }
 
             try {
                 const active = await contract.gameActive();
@@ -525,9 +520,8 @@
                     startGameBtn.disabled = true;
                     startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     betButtons.forEach(btn => btn.disabled = true);
-                    forceEndGameBtn.classList.remove('hidden'); // Show force end game button
+                    forceEndGameBtn.classList.remove('hidden');
                 } else {
-                    // Only enable if a bet is selected
                     if (betAmount > 0) {
                         startGameBtn.textContent = 'Start Game';
                         startGameBtn.disabled = false;
@@ -538,7 +532,7 @@
                         startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     }
                     betButtons.forEach(btn => btn.disabled = false);
-                    forceEndGameBtn.classList.add('hidden'); // Hide force end game button
+                    forceEndGameBtn.classList.add('hidden');
                     showMessage('Wallet connected. Select your bet to start.', 'text-green-400');
                 }
             } catch (error) {
@@ -546,8 +540,8 @@
                 showMessage("Error fetching game state from contract. Please refresh or check network.", 'text-red-400');
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                betButtons.forEach(btn => btn.disabled = true); // Disable bet buttons on contract error
-                forceEndGameBtn.classList.add('hidden'); // Hide force end game button on error
+                betButtons.forEach(btn => btn.disabled = true);
+                forceEndGameBtn.classList.add('hidden');
             }
         };
 
@@ -568,24 +562,22 @@
             const cell = event.target;
             const index = cell.getAttribute('data-index');
 
-            // Only allow moves if the game is active and the cell is empty
             if (isGameActive && boardState[index] === '') {
                 boardState[index] = currentPlayer;
                 cell.textContent = currentPlayer;
                 cell.classList.add(`cell-${currentPlayer.toLowerCase()}`, 'disabled');
 
                 if (checkWin()) {
-                    endGame(`${currentPlayer} wins!`, userAddress, false); // Pass winner address
+                    endGame(`${currentPlayer} wins!`, userAddress, false);
                     return;
                 }
                 if (checkDraw()) {
-                    endGame(`It's a draw!`, ethers.constants.AddressZero, true); // Pass zero address for draw
+                    endGame(`It's a draw!`, ethers.constants.AddressZero, true);
                     return;
                 }
 
-                currentPlayer = 'O'; // Switch to computer
+                currentPlayer = 'O';
                 showMessage("Computer's turn...", 'text-gray-200');
-                // Disable user clicks while computer thinks
                 gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
                 setTimeout(computerMove, 1000);
             }
@@ -644,7 +636,7 @@
             cell.classList.add('cell-o', 'disabled');
 
             if (checkWin()) {
-                endGame('Computer wins!', ethers.constants.AddressZero, false); // Computer wins, no specific winner address for loss
+                endGame('Computer wins!', ethers.constants.AddressZero, false);
                 return;
             }
             if (checkDraw()) {
@@ -652,9 +644,8 @@
                 return;
             }
 
-            currentPlayer = 'X'; // Switch back to player
+            currentPlayer = 'X';
             showMessage("Your turn...", 'text-gray-200');
-            // Re-enable user clicks
             gameBoard.querySelectorAll('.cell').forEach(c => {
                 if (boardState[c.getAttribute('data-index')] === '') {
                     c.classList.remove('disabled');
@@ -684,16 +675,14 @@
                 return;
             }
 
-            // Crucial: Re-check contract state immediately before sending transaction
             try {
                 const contractGameActive = await contract.gameActive();
                 if (contractGameActive) {
                     showMessage("Failed to place bet: A game is already active on the contract. Please complete it or use 'Force End Game'.", 'text-red-400');
-                    // Also update UI to reflect this state
                     startGameBtn.disabled = true;
                     startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     betButtons.forEach(btn => btn.disabled = true);
-                    forceEndGameBtn.classList.remove('hidden'); // Show force end game button
+                    forceEndGameBtn.classList.remove('hidden');
                     return;
                 }
             } catch (error) {
@@ -706,21 +695,16 @@
             showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
             
             try {
-                // Convert betAmount to Wei (or smallest unit of STT)
                 const valueInWei = ethers.utils.parseEther(betAmount.toString());
-
-                // Call the startGame function on the smart contract
                 const tx = await contract.startGame(valueInWei, { value: valueInWei });
                 showMessage("Transaction sent! Waiting for confirmation...", 'text-yellow-300');
-                await tx.wait(); // Wait for the transaction to be mined
+                await tx.wait();
                 showMessage(`Bet of ${betAmount} STT placed. Game starting...`, 'text-green-400');
 
-                // Reset game state
                 boardState = ['', '', '', '', '', '', '', '', ''];
                 currentPlayer = 'X';
-                isGameActive = true; // Set client-side game active after successful contract call
+                isGameActive = true;
 
-                // Clear the board and remove disabled class
                 gameBoard.querySelectorAll('.cell').forEach(cell => {
                     cell.textContent = '';
                     cell.classList.remove('cell-x', 'cell-o', 'disabled');
@@ -728,75 +712,65 @@
                 
                 showMessage("Game started! Your turn...", 'text-gray-200');
                 
-                // Disable start button during the game
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                
-                // Disable bet buttons during the game
                 betButtons.forEach(btn => btn.disabled = true);
-                forceEndGameBtn.classList.add('hidden'); // Hide force end game button once game starts
+                forceEndGameBtn.classList.add('hidden');
 
             } catch (error) {
                 console.error("Error starting game or placing bet:", error);
-                // Check if the error is due to "Game is already active"
                 if (error.data && error.data.originalError && error.data.originalError.data && error.data.originalError.data.includes("Game is already active")) {
                     showMessage("Failed to place bet: A game is already active on the contract. Please refresh to sync.", 'text-red-400');
                 } else {
                     showMessage(`Failed to place bet. ${error.message || 'Transaction rejected.'}`, 'text-red-400');
                 }
-                // Re-enable buttons if transaction fails
                 startGameBtn.disabled = false;
                 startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 betButtons.forEach(btn => btn.disabled = false);
-                forceEndGameBtn.classList.remove('hidden'); // Show force end game button if transaction fails
+                forceEndGameBtn.classList.remove('hidden');
             }
         };
 
         const endGame = async (message, winnerAddress, isDraw) => {
-            isGameActive = false; // Set client-side game inactive before contract call
+            isGameActive = false;
             showMessage(message, 'text-green-400');
-            // Disable all cells
             gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
 
-            // Re-enable start button
             startGameBtn.textContent = 'Restart Game';
             startGameBtn.disabled = false;
             startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
 
-            // Re-enable bet buttons
             betButtons.forEach(btn => btn.disabled = false);
-            forceEndGameBtn.classList.add('hidden'); // Hide force end game button on normal end
+            forceEndGameBtn.classList.add('hidden');
 
             showMessage("Ending game and processing payout...", 'text-yellow-300');
             try {
-                // Call the endGame function on the smart contract
                 const tx = await contract.endGame(winnerAddress, isDraw);
                 showMessage("Payout transaction sent! Waiting for confirmation...", 'text-yellow-300');
-                await tx.wait(); // Wait for the transaction to be mined
+                await tx.wait();
 
                 let outcomeText = '';
                 let payoutValue = 0;
                 if (isDraw) {
                     outcomeText = 'Draw';
-                    payoutValue = betAmount; // Bet returned
-                } else if (winnerAddress === userAddress) { // Assuming user is the 'X' player
+                    payoutValue = betAmount;
+                } else if (winnerAddress === userAddress) {
                     outcomeText = 'Win';
-                    payoutValue = betAmount * 2; // Double payout
+                    payoutValue = betAmount * 2;
                 } else {
                     outcomeText = 'Loss';
-                    payoutValue = -betAmount; // Lost bet
+                    payoutValue = -betAmount;
                 }
 
-                showResultModal(`${outcomeText}!`, `Game concluded. Check your wallet for ${payoutValue.toFixed(2)} STT.`, true, payoutValue); // Pass payoutValue
+                showResultModal(`${outcomeText}!`, `Game concluded. Check your wallet for ${payoutValue.toFixed(2)} STT.`, true, payoutValue);
                 
             } catch (error) {
                 console.error("Error ending game or processing payout:", error);
-                showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Check console for details.'}`, false, 0); // Indicate failure
-                forceEndGameBtn.classList.remove('hidden'); // Show force end game button if payout fails
+                showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Check console for details.'}`, false, 0);
+                forceEndGameBtn.classList.remove('hidden');
             }
         };
 
-        // New function to force end the game on the contract
         const forceEndGame = async () => {
             if (!isWalletConnected || !contract) {
                 showMessage('Wallet not connected or contract not initialized.', 'text-red-400');
@@ -804,13 +778,10 @@
             }
             showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
             try {
-                // Call endGame with zero address and not a draw, effectively resetting the game
-                // This assumes the contract owner (which is likely you, the deployer) can call this.
                 const tx = await contract.endGame(ethers.constants.AddressZero, false);
                 showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300');
                 await tx.wait();
                 showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
-                // Re-sync UI after successful force end
                 await getContractGameState();
             } catch (error) {
                 console.error("Error forcing end game:", error);
@@ -820,15 +791,14 @@
         
         const setBet = (amount, button) => {
             betAmount = amount;
-            // Remove 'selected' class from all buttons
             betButtons.forEach(btn => btn.classList.remove('selected'));
-            // Add 'selected' class to the clicked button
             button.classList.add('selected');
             showMessage(`Bet set to ${betAmount} STT.`, 'text-gray-200');
-            if (isWalletConnected) {
+            // Re-evaluate button state after bet selection
+            if (isWalletConnected && !isGameActive) { // Only enable if wallet connected and no active game
                 startGameBtn.textContent = 'Start Game';
-                startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 startGameBtn.disabled = false;
+                startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
         };
         
@@ -850,7 +820,7 @@
                 txStatus.textContent = 'Failed';
                 txStatus.classList.remove('text-green-400');
                 txStatus.classList.add('text-red-400');
-                txValue.textContent = 'N/A'; // Or specific error value if applicable
+                txValue.textContent = 'N/A';
             }
             modalDetails.classList.remove('hidden');
             resultModal.classList.remove('hidden');
