@@ -169,6 +169,12 @@
 
         // Asynchronously fetches the latest game state from the blockchain.
         async function fetchGameState() {
+            // Check if the contract object is initialized before making calls
+            if (!contract) {
+                console.warn("Contract not initialized. Skipping state fetch.");
+                return;
+            }
+
             try {
                 // Fetch the board state
                 const boardPromises = [...Array(9).keys()].map(i => contract.board(i));
@@ -296,7 +302,7 @@
                     let winMsg = "Game Over!";
                     if (finalState === GameState.Player1Wins) winMsg = "Player 1 Wins!";
                     if (finalState === GameState.Player2Wins) winMsg = "Player 2 Wins!";
-                    if (finalState === GameState.Draw) winMsg = "It's a Draw!";
+                    if (finalState === GameState.Draw) winMsg = "It's a draw!";
                     showMessage(winMsg);
                     fetchGameState();
                 });
@@ -305,8 +311,8 @@
                 fetchGameState();
 
             } catch (err) {
-                console.error(err);
-                showMessage("Error connecting wallet. Check console.", true);
+                console.error("Error in connectWallet:", err);
+                showMessage("Failed to connect. Check console and make sure MetaMask is on the Somnia Testnet.", true);
             }
         }
 
