@@ -296,6 +296,7 @@
         let player1Address;
         let player2Address;
         let currentPlayerAddress;
+        let isConnecting = false;
 
         // --- Utility Functions ---
 
@@ -325,8 +326,16 @@
          * @dev Connects the user's wallet and initializes the contract instance.
          */
         async function connectWallet() {
+            if (isConnecting) return; // Prevent multiple clicks
+            isConnecting = true;
+            connectWalletBtn.disabled = true;
+            connectWalletBtn.textContent = 'Connecting...';
+
             if (typeof window.ethereum === 'undefined') {
                 showMessage("Wallet Not Found", "Please install a browser wallet like MetaMask and refresh the page.");
+                isConnecting = false;
+                connectWalletBtn.disabled = false;
+                connectWalletBtn.textContent = 'Connect Wallet';
                 return;
             }
 
@@ -339,6 +348,9 @@
                 // Ensure the user is on the Somnia Testnet
                 if (network.chainId !== 50312) {
                     showMessage("Wrong Network", "Please connect to the Somnia Testnet (Chain ID: 50312).");
+                    isConnecting = false;
+                    connectWalletBtn.disabled = false;
+                    connectWalletBtn.textContent = 'Connect Wallet';
                     return;
                 }
 
@@ -358,6 +370,14 @@
             } catch (error) {
                 console.error("Error connecting wallet:", error);
                 showMessage("Connection Failed", "Could not connect to your wallet. Please check your browser's wallet extension.");
+                
+                // If connection fails, revert the UI
+                connectWalletSection.classList.remove('hidden');
+                gameUiSection.classList.add('hidden');
+            } finally {
+                isConnecting = false;
+                connectWalletBtn.disabled = false;
+                connectWalletBtn.textContent = 'Connect Wallet';
             }
         }
 
@@ -559,19 +579,28 @@
                 console.log("GameEnded event received!", winner);
                 updateUI();
             });
+
+            // Listen for account and network changes to update the UI
+            window.ethereum.on('accountsChanged', (accounts) => {
+                console.log("Accounts changed event received:", accounts);
+                if (accounts.length === 0) {
+                    // Wallet disconnected, revert to connect screen
+                    connectWalletSection.classList.remove('hidden');
+                    gameUiSection.classList.add('hidden');
+                } else {
+                    updateUI(); // A different account was selected
+                }
+            });
+
+            window.ethereum.on('chainChanged', (chainId) => {
+                console.log("Chain changed event received:", chainId);
+                // Force a reload to handle network change cleanly
+                window.location.reload();
+            });
         }
 
         // Add event listener to the "Connect Wallet" button
         connectWalletBtn.addEventListener('click', connectWallet);
-
-        // Remove the automatic connection attempt on page load
-        /*
-        window.addEventListener('load', () => {
-            if (typeof window.ethereum !== 'undefined' && window.ethereum.selectedAddress) {
-                connectWallet();
-            }
-        });
-        */
 
     </script>
 </body>
