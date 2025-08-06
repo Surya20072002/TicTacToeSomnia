@@ -1,139 +1,352 @@
-import { useEffect, useState } from "react";
-import { ethers } from "ethers";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Somnia Tic-Tac-Toe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            margin-top: 2rem;
+        }
+        .cell {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        .cell:hover:not([disabled]) {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+        .cell.player-1 { color: #f9d923; }
+        .cell.player-2 { color: #50c4f8; }
+        .message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            display: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .message-box.show {
+            display: block;
+            opacity: 1;
+        }
+        .disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div id="app" class="flex flex-col items-center">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-lg w-full flex flex-col items-center text-gray-800">
+            <h1 class="text-3xl font-bold mb-4">Tic Tac Toe on Somnia</h1>
 
-const contractABI = [
-  {
-    "inputs": [],
-    "name": "joinGame",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function",
-  },
-  {
-    "inputs": [{ "internalType": "uint8", "name": "position", "type": "uint8" }],
-    "name": "makeMove",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function",
-  },
-  {
-    "inputs": [],
-    "name": "getBoard",
-    "outputs": [{ "internalType": "uint8[9]", "name": "", "type": "uint8[9]" }],
-    "stateMutability": "view",
-    "type": "function",
-  },
-  {
-    "inputs": [],
-    "name": "checkWinner",
-    "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }],
-    "stateMutability": "view",
-    "type": "function",
-  },
-  {
-    "inputs": [],
-    "name": "currentPlayer",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function",
-  },
-  {
-    "inputs": [],
-    "name": "player1",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function",
-  },
-  {
-    "inputs": [],
-    "name": "player2",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function",
-  },
-];
+            <div id="account-info" class="text-sm text-gray-500 mb-4 text-center hidden">
+                <p>Connected as: <span id="account-address" class="font-mono text-gray-700"></span></p>
+                <p id="player1-info" class="mt-1"></p>
+                <p id="player2-info" class="mt-1"></p>
+            </div>
+            
+            <div id="game-container" class="hidden">
+                <div id="gameBoard" class="grid grid-cols-3 gap-2 p-2 bg-gray-200 rounded-lg shadow-inner">
+                    <button class="cell" data-index="0"></button>
+                    <button class="cell" data-index="1"></button>
+                    <button class="cell" data-index="2"></button>
+                    <button class="cell" data-index="3"></button>
+                    <button class="cell" data-index="4"></button>
+                    <button class="cell" data-index="5"></button>
+                    <button class="cell" data-index="6"></button>
+                    <button class="cell" data-index="7"></button>
+                    <button class="cell" data-index="8"></button>
+                </div>
+            </div>
 
-const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
+            <p id="status-message" class="mt-6 text-lg font-bold text-gray-800">Please connect your wallet to play.</p>
+            
+            <div id="message-container" class="mt-4 p-3 bg-indigo-100 text-indigo-800 rounded-lg text-center font-medium hidden"></div>
 
-export default function Index() {
-  const [board, setBoard] = useState<number[]>(Array(9).fill(0));
-  const [contract, setContract] = useState<any>(null);
-  const [account, setAccount] = useState<string>("");
-  const [winner, setWinner] = useState<number>(0);
-  const [currentPlayer, setCurrentPlayer] = useState<string>("");
-
-  useEffect(() => {
-    const load = async () => {
-      if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const signer = provider.getSigner();
-        setAccount(accounts[0]);
-
-        const instance = new ethers.Contract(
-          contractAddress,
-          contractABI,
-          signer
-        );
-        setContract(instance);
-
-        const bd = await instance.getBoard();
-        setBoard(bd.map(Number));
-
-        const player = await instance.currentPlayer();
-        setCurrentPlayer(player);
-
-        const winner = await instance.checkWinner();
-        setWinner(Number(winner));
-      }
-    };
-    load();
-  }, []);
-
-  const handleMove = async (i: number) => {
-    if (!contract) return;
-    const updatedBoard = await contract.getBoard();
-    if (updatedBoard[i] !== 0 || winner !== 0) return;
-
-    try {
-      const tx = await contract.makeMove(i);
-      await tx.wait();
-      const newBoard = await contract.getBoard();
-      setBoard(newBoard.map(Number));
-
-      const player = await contract.currentPlayer();
-      setCurrentPlayer(player);
-
-      const winner = await contract.checkWinner();
-      setWinner(Number(winner));
-    } catch (err) {
-      console.error("Transaction failed:", err);
-    }
-  };
-
-  const getStatus = () => {
-    if (winner === 1) return "❌ Player 1 wins!";
-    if (winner === 2) return "⭕ Player 2 wins!";
-    if (board.every((c) => c !== 0)) return "🤝 It's a draw!";
-    return currentPlayer === account ? "🎯 Your Turn" : "⏳ Waiting for Opponent";
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gray-100">
-      <h1 className="text-3xl font-bold mb-4">Tic Tac Toe 🧠 on Somnia</h1>
-      <div className="grid grid-cols-3 gap-2">
-        {board.map((cell, i) => (
-          <button
-            key={i}
-            className="w-20 h-20 text-2xl font-bold bg-white border rounded shadow"
-            onClick={() => handleMove(i)}
-          >
-            {cell === 1 ? "❌" : cell === 2 ? "⭕" : ""}
-          </button>
-        ))}
-      </div>
-      <p className="mt-4 text-lg font-medium">{getStatus()}</p>
-      <p className="mt-2 text-sm text-gray-500">Connected as: {account}</p>
+            <button id="connect-wallet-btn" class="mt-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
+                Connect Wallet
+            </button>
+            <button id="join-game-btn" class="mt-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors hidden">
+                Join Game
+            </button>
+        </div>
     </div>
-  );
-}
+    <div id="messageBox" class="message-box opacity-0"></div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // NOTE: Remember to replace this with your deployed contract address.
+        const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE";
+        
+        // ABI derived from the final working Solidity contract.
+        const contractABI = [
+            "function board(uint256) view returns (uint8)",
+            "function currentPlayer() view returns (address)",
+            "function gameState() view returns (uint8)",
+            "function player1() view returns (address)",
+            "function player2() view returns (address)",
+            "function joinGame() external",
+            "function makeMove(uint8 position) external",
+            "event GameStarted(address indexed p1, address indexed p2)",
+            "event MoveMade(address indexed player, uint8 position, uint8 value)",
+            "event GameOver(uint8 finalState)"
+        ];
+
+        // --- DOM ELEMENTS ---
+        const connectWalletBtn = document.getElementById("connect-wallet-btn");
+        const joinGameBtn = document.getElementById("join-game-btn");
+        const gameBoard = document.getElementById("gameBoard");
+        const statusMessage = document.getElementById("status-message");
+        const accountAddressEl = document.getElementById("account-address");
+        const player1InfoEl = document.getElementById("player1-info");
+        const player2InfoEl = document.getElementById("player2-info");
+        const accountInfoEl = document.getElementById("account-info");
+        const gameContainerEl = document.getElementById("game-container");
+        const messageContainerEl = document.getElementById("message-container");
+
+        // --- GAME STATE VARIABLES ---
+        let provider, signer, contract;
+        let userAccount;
+        let currentGameState;
+        let currentPlayerAddress;
+
+        // GameState enum mapping for readability
+        const GameState = {
+            WaitingForPlayer: 0,
+            InProgress: 1,
+            Player1Wins: 2,
+            Player2Wins: 3,
+            Draw: 4,
+        };
+
+        // --- HELPER FUNCTIONS ---
+        // Displays a message to the user in the UI.
+        function showMessage(message, isError = false) {
+            messageContainerEl.textContent = message;
+            messageContainerEl.classList.remove('hidden');
+            if (isError) {
+                messageContainerEl.classList.remove('bg-indigo-100', 'text-indigo-800');
+                messageContainerEl.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                messageContainerEl.classList.add('bg-indigo-100', 'text-indigo-800');
+                messageContainerEl.classList.remove('bg-red-100', 'text-red-800');
+            }
+        }
+
+        // Asynchronously fetches the latest game state from the blockchain.
+        async function fetchGameState() {
+            try {
+                // Fetch the board state
+                const boardPromises = [...Array(9).keys()].map(i => contract.board(i));
+                const board = await Promise.all(boardPromises);
+
+                // Fetch other game state variables
+                const [state, current, p1, p2] = await Promise.all([
+                    contract.gameState(),
+                    contract.currentPlayer(),
+                    contract.player1(),
+                    contract.player2()
+                ]);
+
+                currentGameState = Number(state);
+                currentPlayerAddress = current;
+
+                // Update UI based on fetched data
+                renderBoard(board.map(Number));
+                updateStatus(state, current, p1, p2);
+                updatePlayerInfo(p1, p2);
+
+            } catch (err) {
+                console.error("Error fetching game state:", err);
+                showMessage("Failed to fetch game state. Check console.", true);
+            }
+        }
+
+        // Renders the board based on the game state.
+        function renderBoard(board) {
+            const cells = gameBoard.querySelectorAll('.cell');
+            cells.forEach((cell, i) => {
+                cell.textContent = "";
+                cell.classList.remove('player-1', 'player-2');
+                cell.disabled = true; // Disable all cells by default
+
+                if (board[i] === 1) {
+                    cell.textContent = "❌";
+                    cell.classList.add('player-1');
+                } else if (board[i] === 2) {
+                    cell.textContent = "⭕";
+                    cell.classList.add('player-2');
+                }
+                
+                // Enable cells only if it's the current player's turn and the spot is empty
+                if (currentGameState === GameState.InProgress && 
+                    currentPlayerAddress.toLowerCase() === userAccount.toLowerCase() && 
+                    board[i] === 0) {
+                    cell.disabled = false;
+                }
+            });
+        }
+
+        // Updates the status message for the user.
+        function updateStatus(state, current, p1, p2) {
+            let statusText = "Please connect your wallet.";
+            joinGameBtn.classList.add('hidden');
+
+            if (state == GameState.WaitingForPlayer) {
+                statusText = "Waiting for another player to join...";
+                if (userAccount && p1 && p1.toLowerCase() !== userAccount.toLowerCase()) {
+                    joinGameBtn.classList.remove('hidden');
+                }
+            } else if (state == GameState.InProgress) {
+                if (current.toLowerCase() === userAccount.toLowerCase()) {
+                    statusText = "🎯 Your Turn";
+                } else {
+                    statusText = "⏳ Waiting for Opponent";
+                }
+            } else if (state == GameState.Player1Wins) {
+                statusText = "❌ Player 1 wins!";
+            } else if (state == GameState.Player2Wins) {
+                statusText = "⭕ Player 2 wins!";
+            } else if (state == GameState.Draw) {
+                statusText = "🤝 It's a draw!";
+            }
+            statusMessage.textContent = statusText;
+        }
+
+        // Updates the player addresses displayed on the UI.
+        function updatePlayerInfo(p1, p2) {
+            accountInfoEl.classList.remove('hidden');
+            if (p1) {
+                player1InfoEl.textContent = `Player 1 (X): ${p1.substring(0, 6)}...`;
+            }
+            if (p2 && p2 !== ethers.constants.AddressZero) {
+                player2InfoEl.textContent = `Player 2 (O): ${p2.substring(0, 6)}...`;
+            } else {
+                player2InfoEl.textContent = `Player 2: Waiting...`;
+            }
+        }
+
+        // --- EVENT HANDLERS ---
+        // Connects to MetaMask and sets up the contract instance.
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                showMessage("MetaMask is not installed. Please install it to play.", true);
+                return;
+            }
+
+            try {
+                // Request account access
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                userAccount = accounts[0];
+                accountAddressEl.textContent = `${userAccount.substring(0, 6)}...${userAccount.substring(userAccount.length - 4)}`;
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                
+                contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
+                
+                // Hide connect button, show game UI
+                connectWalletBtn.classList.add('hidden');
+                gameContainerEl.classList.remove('hidden');
+                
+                // Set up event listeners for real-time updates
+                contract.on("GameStarted", (p1, p2) => {
+                    showMessage("Game started!");
+                    fetchGameState();
+                });
+                contract.on("MoveMade", (player, position, value) => {
+                    showMessage(`Player ${value === 1 ? 'X' : 'O'} made a move!`);
+                    fetchGameState();
+                });
+                contract.on("GameOver", (finalState) => {
+                    let winMsg = "Game Over!";
+                    if (finalState === GameState.Player1Wins) winMsg = "Player 1 Wins!";
+                    if (finalState === GameState.Player2Wins) winMsg = "Player 2 Wins!";
+                    if (finalState === GameState.Draw) winMsg = "It's a Draw!";
+                    showMessage(winMsg);
+                    fetchGameState();
+                });
+
+                // Fetch initial game state
+                fetchGameState();
+
+            } catch (err) {
+                console.error(err);
+                showMessage("Error connecting wallet. Check console.", true);
+            }
+        }
+
+        // Handles a cell click to make a move on the contract.
+        async function handleMove(event) {
+            if (!contract || currentGameState !== GameState.InProgress) return;
+            const position = event.target.dataset.index;
+            
+            try {
+                const tx = await contract.makeMove(parseInt(position));
+                showMessage("Transaction sent... waiting for confirmation.");
+                await tx.wait();
+            } catch (err) {
+                console.error("Transaction failed:", err);
+                const reason = err.data?.message || err.message;
+                showMessage(reason.split('revert ')[1] || "An error occurred.", true);
+            }
+        }
+        
+        // Handles a player joining the game.
+        async function handleJoinGame() {
+            if (!contract) return;
+            try {
+                const tx = await contract.joinGame();
+                showMessage("Joining game... waiting for confirmation.");
+                await tx.wait();
+                joinGameBtn.classList.add('hidden');
+            } catch (err) {
+                console.error("Transaction failed:", err);
+                const reason = err.data?.message || err.message;
+                showMessage(reason.split('revert ')[1] || "An error occurred.", true);
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWalletBtn.addEventListener('click', connectWallet);
+            gameBoard.addEventListener('click', handleMove);
+            joinGameBtn.addEventListener('click', handleJoinGame);
+        });
+    </script>
+</body>
+</html>
