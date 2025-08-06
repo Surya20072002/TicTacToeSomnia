@@ -458,12 +458,16 @@
                     provider = new ethers.providers.Web3Provider(window.ethereum);
                     signer = provider.getSigner();
                     contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    // Request accounts; this will trigger the wallet pop-up if not already connected
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     await handleAccountsChanged(accounts); // This will trigger network and game state checks
                 } catch (error) {
                     console.error('Wallet connection error:', error);
-                    if (!isAutoConnect) {
-                        showMessage('Wallet connection rejected or failed. Please try again.', 'text-red-400');
+                    // Check if the error is a user rejection (code 4001 for MetaMask)
+                    if (error.code === 4001) {
+                        showMessage('Wallet connection rejected by user. Please approve to play.', 'text-red-400');
+                    } else if (!isAutoConnect) {
+                        showMessage('Wallet connection failed. Please try again.', 'text-red-400');
                     } else {
                         showMessage('Please connect your wallet to play.', 'text-yellow-300');
                     }
