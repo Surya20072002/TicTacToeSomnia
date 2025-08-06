@@ -528,52 +528,46 @@
                 .map((cell, index) => cell === '' ? index : null)
                 .filter(val => val !== null);
             
-            // Randomness check for reduced winning rate (30% chance for a random move)
-            const strategicChance = 70; // 70% chance to play strategically
-            if (Math.random() * 100 > strategicChance) {
-                // Make a random move instead of a strategic one
-                moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-            } else {
-                // Play strategically
-                // 1. Check for winning moves
+            // AI always plays strategically (100% strategic chance)
+            // 1. Check for winning moves
+            for (const combination of WINNING_COMBINATIONS) {
+                const [a, b, c] = combination;
+                if (boardState[a] === 'O' && boardState[b] === 'O' && boardState[c] === '') moveIndex = c;
+                if (boardState[a] === 'O' && boardState[c] === 'O' && boardState[b] === '') moveIndex = b;
+                if (boardState[b] === 'O' && boardState[c] === 'O' && boardState[a] === '') moveIndex = a;
+                if (moveIndex !== -1) break;
+            }
+
+            // 2. Block the player's winning moves
+            if (moveIndex === -1) {
                 for (const combination of WINNING_COMBINATIONS) {
                     const [a, b, c] = combination;
-                    if (boardState[a] === 'O' && boardState[b] === 'O' && boardState[c] === '') moveIndex = c;
-                    if (boardState[a] === 'O' && boardState[c] === 'O' && boardState[b] === '') moveIndex = b;
-                    if (boardState[b] === 'O' && boardState[c] === 'O' && boardState[a] === '') moveIndex = a;
+                    if (boardState[a] === 'X' && boardState[b] === 'X' && boardState[c] === '') moveIndex = c;
+                    if (boardState[a] === 'X' && boardState[c] === 'X' && boardState[b] === '') moveIndex = b;
+                    if (boardState[b] === 'X' && boardState[c] === 'X' && boardState[a] === '') moveIndex = a;
                     if (moveIndex !== -1) break;
                 }
+            }
 
-                // 2. Block the player's winning moves
-                if (moveIndex === -1) {
-                    for (const combination of WINNING_COMBINATIONS) {
-                        const [a, b, c] = combination;
-                        if (boardState[a] === 'X' && boardState[b] === 'X' && boardState[c] === '') moveIndex = c;
-                        if (boardState[a] === 'X' && boardState[c] === 'X' && boardState[b] === '') moveIndex = b;
-                        if (boardState[b] === 'X' && boardState[c] === 'X' && boardState[a] === '') moveIndex = a;
-                        if (moveIndex !== -1) break;
-                    }
-                }
+            // 3. Take the center
+            if (moveIndex === -1 && boardState[4] === '') {
+                moveIndex = 4;
+            }
 
-                // 3. Take the center
-                if (moveIndex === -1 && boardState[4] === '') {
-                    moveIndex = 4;
-                }
-
-                // 4. Take a corner
-                if (moveIndex === -1) {
-                    const corners = [0, 2, 6, 8];
-                    const availableCorners = corners.filter(index => boardState[index] === '');
-                    if (availableCorners.length > 0) {
-                        moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
-                    }
-                }
-
-                // 5. Take any remaining available spot
-                if (moveIndex === -1) {
-                    moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            // 4. Take a corner
+            if (moveIndex === -1) {
+                const corners = [0, 2, 6, 8];
+                const availableCorners = corners.filter(index => boardState[index] === '');
+                if (availableCorners.length > 0) {
+                    moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
                 }
             }
+
+            // 5. Take any remaining available spot
+            if (moveIndex === -1) {
+                moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+            
 
             boardState[moveIndex] = 'O';
             const cell = gameBoard.querySelector(`[data-index="${moveIndex}"]`);
