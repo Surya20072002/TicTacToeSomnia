@@ -1,607 +1,586 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic-Tac-Toe dApp</title>
-    <!-- Tailwind CSS CDN for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter font -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap">
-    <!-- Lucide Icons CDN -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Ethers.js CDN for blockchain interaction -->
-    <script src="https://cdn.ethers.io/scripts/ethers-v5.7.2.umd.min.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .icon {
-            display: inline-block;
-            width: 1em;
-            height: 1em;
-            stroke-width: 2;
-            stroke: currentColor;
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-    </style>
-</head>
-<body class="bg-gray-50 flex items-center justify-center p-4 min-h-screen antialiased">
+import { useState, useEffect } from 'react';
+import { Buffer } from 'buffer';
 
-    <div id="app" class="container mx-auto max-w-2xl">
-        <div id="card" class="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div id="card-header" class="text-center p-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                <h1 class="text-4xl font-extrabold tracking-tight">Tic-Tac-Toe dApp</h1>
-                <p class="text-blue-100 mt-2 text-md">A multiplayer game on the Somnia Testnet</p>
-            </div>
-            <div id="card-content" class="p-6 space-y-6">
-                <!-- Connect Wallet Section -->
-                <div id="connect-wallet-section" class="flex flex-col items-center gap-4 text-center">
-                    <h3 class="text-xl font-semibold">Connect your wallet to play</h3>
-                    <p class="text-gray-500">
-                        You need to use a wallet like MetaMask and connect it to the Somnia Testnet.
-                    </p>
-                    <button id="connect-wallet-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors duration-200">
-                        Connect Wallet
-                    </button>
-                </div>
+// Fix for Buffer not being defined
+if (typeof window !== 'undefined') {
+  window.Buffer = Buffer;
+}
 
-                <!-- Game UI Section (Hidden by default) -->
-                <div id="game-ui-section" class="hidden flex flex-col items-center gap-6">
-                    <div class="flex items-center gap-4 flex-wrap justify-center text-sm font-medium" id="player-info">
-                        <!-- Player badges will be dynamically inserted here -->
-                    </div>
-                    <div class="flex flex-col items-center gap-2 text-center w-full">
-                        <h4 class="text-2xl font-bold tracking-tight">
-                            Game State: <span class="text-purple-600" id="game-state-text"></span>
-                        </h4>
-                        <p class="text-lg text-gray-700" id="current-player-text">
-                            <!-- Current player turn will be dynamically inserted here -->
-                        </p>
-                    </div>
+// Somnia Testnet Configuration
+const somniaTestnet = {
+  id: 50312,
+  name: 'Somnia Testnet',
+  network: 'somnia-testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'STT',
+    symbol: 'STT',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://dream-rpc.somnia.network/'],
+    },
+    public: {
+      http: ['https://dream-rpc.somnia.network/'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Somnia Explorer',
+      url: 'https://shannon-explorer.somnia.network/',
+    },
+  },
+  testnet: true,
+};
 
-                    <div id="board-grid" class="grid grid-cols-3 gap-4 w-full aspect-square max-w-sm">
-                        <!-- Board squares will be dynamically inserted here -->
-                    </div>
+// Replace with your deployed contract address and ABI after deployment.
+const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; // Placeholder
+const CONTRACT_ABI = [
+  // ABI from the MysteryMine.sol contract
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "won",
+        "type": "bool"
+      }
+    ],
+    "name": "GameOver",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "size",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "mines",
+        "type": "uint8"
+      }
+    ],
+    "name": "GameStarted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "x",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "y",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "value",
+        "type": "uint8"
+      }
+    ],
+    "name": "TileRevealed",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "leaderboard",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "size",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "mines",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "seed",
+        "type": "string"
+      }
+    ],
+    "name": "newGame",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "playerGames",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "size",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "mines",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "tilesRevealed",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "score",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "x",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "y",
+        "type": "uint8"
+      }
+    ],
+    "name": "revealTile",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getGameState",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "size",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "mines",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "tilesRevealed",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint8[]",
+        "name": "board",
+        "type": "uint8[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getMyHighScore",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
 
-                    <div id="game-actions" class="flex gap-4 mt-4">
-                        <!-- Game action buttons will be dynamically inserted here -->
-                    </div>
-                </div>
+function App() {
+  const [address, setAddress] = useState(null);
+  const [boardSize, setBoardSize] = useState(9);
+  const [board, setBoard] = useState([]);
+  const [gameStatus, setGameStatus] = useState('Welcome! Choose a difficulty and start a new game.');
+  const [isLoading, setIsLoading] = useState(false);
+  const [highScore, setHighScore] = useState(0);
 
-                <!-- Message Box -->
-                <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
-                    <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
-                        <h3 id="message-box-title" class="text-lg font-bold mb-2"></h3>
-                        <p id="message-box-text" class="text-gray-600 mb-4"></p>
-                        <button id="message-box-close" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">
-                            OK
-                        </button>
-                    </div>
-                </div>
-            </div>
+  // Helper function to encode a string to hex
+  const stringToHex = (str) => {
+    let hex = '';
+    for (let i = 0; i < str.length; i++) {
+      hex += str.charCodeAt(i).toString(16).padStart(2, '0');
+    }
+    return hex;
+  };
 
-            <div id="card-footer" class="flex justify-center p-4 bg-gray-50 text-gray-400 text-xs">
-                Powered by Somnia Network & deployed via Vercel
-            </div>
-        </div>
-    </div>
+  // Helper function to manually encode function call data
+  const encodeFunctionData = (functionName, types, values) => {
+    // This is a simplified manual encoder. For real-world use, a library is highly recommended.
+    // We'll hardcode the function selectors for simplicity.
+    let functionSignature = '';
+    if (functionName === 'newGame') {
+      functionSignature = '0x1634b079'; // keccak256('newGame(uint8,uint8,string)')
+    } else if (functionName === 'revealTile') {
+      functionSignature = '0x15392095'; // keccak256('revealTile(uint8,uint8)')
+    } else if (functionName === 'getGameState') {
+      functionSignature = '0x1b4ae839'; // keccak256('getGameState()')
+    } else if (functionName === 'getMyHighScore') {
+        functionSignature = '0x12a97187'; // keccak256('getMyHighScore()')
+    } else {
+      throw new Error(`Unknown function name: ${functionName}`);
+    }
 
-    <script>
-        // IMPORTANT: The contract address has been updated to your provided value.
-        const contractAddress = "0xf9E24384B638aF3D3425918D35d146BFA7ebd4bd";
+    let encodedArgs = '';
+    let dynamicDataOffset = types.length * 32;
 
-        // IMPORTANT: The contract ABI has been updated to your provided value.
-        const contractABI = [
-            {
-                "inputs": [],
-                "stateMutability": "nonpayable",
-                "type": "constructor"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "winner",
-                        "type": "address"
-                    }
-                ],
-                "name": "GameEnded",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "player1",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "player2",
-                        "type": "address"
-                    }
-                ],
-                "name": "GameStarted",
-                "type": "event"
-            },
-            {
-                "inputs": [],
-                "name": "joinGame",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "row",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "col",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "makeMove",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "player",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "row",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "col",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "MoveMade",
-                "type": "event"
-            },
-            {
-                "inputs": [],
-                "name": "resetGame",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "board",
-                "outputs": [
-                    {
-                        "internalType": "enum TicTacToe.SquareState",
-                        "name": "",
-                        "type": "uint8"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "currentPlayer",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "gameState",
-                "outputs": [
-                    {
-                        "internalType": "enum TicTacToe.GameState",
-                        "name": "",
-                        "type": "uint8"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "player1",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "player2",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            }
-        ];
+    for (let i = 0; i < types.length; i++) {
+      const type = types[i];
+      const value = values[i];
 
-        const gameStateLabels = {
-          0: "Waiting for Player 2",
-          1: "In Progress",
-          2: "Player 1 Won",
-          3: "Player 2 Won",
-          4: "Draw",
-        };
+      if (type === 'uint8') {
+        encodedArgs += value.toString(16).padStart(64, '0');
+      } else if (type === 'string') {
+        const hexString = stringToHex(value);
+        const length = hexString.length / 2;
+        encodedArgs += dynamicDataOffset.toString(16).padStart(64, '0');
+        encodedArgs += length.toString(16).padStart(64, '0');
+        encodedArgs += hexString.padEnd(Math.ceil(hexString.length / 64) * 64, '0');
+        dynamicDataOffset += (32 + Math.ceil(hexString.length / 64) * 32);
+      }
+    }
+    return functionSignature + encodedArgs;
+  };
 
-        const app = document.getElementById('app');
-        const connectWalletBtn = document.getElementById('connect-wallet-btn');
-        const connectWalletSection = document.getElementById('connect-wallet-section');
-        const gameUiSection = document.getElementById('game-ui-section');
-        const playerInfoDiv = document.getElementById('player-info');
-        const gameStateText = document.getElementById('game-state-text');
-        const currentPlayerText = document.getElementById('current-player-text');
-        const boardGrid = document.getElementById('board-grid');
-        const gameActionsDiv = document.getElementById('game-actions');
-        const messageBox = document.getElementById('message-box');
-        const messageBoxTitle = document.getElementById('message-box-title');
-        const messageBoxText = document.getElementById('message-box-text');
-        const messageBoxCloseBtn = document.getElementById('message-box-close');
-
-        let provider;
-        let signer;
-        let contract;
-        let userAddress;
-        let player1Address;
-        let player2Address;
-        let currentPlayerAddress;
-        let isConnecting = false;
-
-        // --- Utility Functions ---
-
-        /**
-         * @dev Shows a custom message box instead of using alert().
-         * @param title The title of the message box.
-         * @param message The message to display.
-         */
-        function showMessage(title, message) {
-            messageBoxTitle.textContent = title;
-            messageBoxText.textContent = message;
-            messageBox.classList.remove('hidden');
-        }
-
-        messageBoxCloseBtn.addEventListener('click', () => {
-            messageBox.classList.add('hidden');
+  // Function to connect to wallet using window.ethereum
+  const connectWallet = async () => {
+    try {
+      if (typeof window.ethereum !== 'undefined') {
+        const accounts = await window.ethereum.request({
+          method: 'eth_requestAccounts',
         });
-
-        function truncateAddress(address) {
-            if (!address) return '';
-            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        if (accounts.length > 0) {
+          setAddress(accounts[0]);
+          console.log("Connected with account:", accounts[0]);
         }
+      } else {
+        const messageBox = document.createElement('div');
+        messageBox.innerHTML = 'Please install a wallet like MetaMask to play.';
+        messageBox.style.cssText = `
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background-color: white;
+          padding: 2rem;
+          border-radius: 1rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          z-index: 1000;
+          text-align: center;
+        `;
+        document.body.appendChild(messageBox);
+        setTimeout(() => document.body.removeChild(messageBox), 3000);
+      }
+    } catch (error) {
+      console.error("Could not connect wallet:", error);
+    }
+  };
 
-        // --- Blockchain Interaction Functions ---
+  // Helper function to handle sending transactions
+  const sendTransaction = async (data, value = '0x0') => {
+    if (!address) {
+      throw new Error('No wallet connected');
+    }
+    const transactionParameters = {
+      to: CONTRACT_ADDRESS,
+      from: address,
+      data: data,
+      value: value,
+      chainId: `0x${somniaTestnet.id.toString(16)}`,
+    };
+    try {
+      const txHash = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [transactionParameters],
+      });
+      console.log('Transaction sent:', txHash);
+      return txHash;
+    } catch (error) {
+      console.error('Failed to send transaction:', error);
+      throw error;
+    }
+  };
 
-        /**
-         * @dev Connects the user's wallet and initializes the contract instance.
-         */
-        async function connectWallet() {
-            if (isConnecting) return; // Prevent multiple clicks
-            isConnecting = true;
-            connectWalletBtn.disabled = true;
-            connectWalletBtn.textContent = 'Connecting...';
+  // Helper function to handle read-only contract calls
+  const readContract = async (data) => {
+    try {
+      const result = await window.ethereum.request({
+        method: 'eth_call',
+        params: [{
+          to: CONTRACT_ADDRESS,
+          data: data,
+          from: address,
+        }, 'latest'],
+      });
+      return result;
+    } catch (error) {
+      console.error('Failed to read contract:', error);
+      throw error;
+    }
+  };
 
-            if (typeof window.ethereum === 'undefined') {
-                showMessage("Wallet Not Found", "Please install a browser wallet like MetaMask and refresh the page.");
-                isConnecting = false;
-                connectWalletBtn.disabled = false;
-                connectWalletBtn.textContent = 'Connect Wallet';
-                return;
-            }
+  const fetchGameState = async () => {
+    if (!address) return;
+    setIsLoading(true);
+    try {
+      const callData = encodeFunctionData('getGameState', [], []);
+      const result = await readContract(callData);
 
-            try {
-                // Request accounts and create a provider
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+      // Manual decoding for getGameState() return (uint8, uint8, uint8, bool, uint8[])
+      const boardDataOffset = parseInt(result.substring(2 + 4 * 64, 2 + 5 * 64), 16) * 2;
+      const boardLength = parseInt(result.substring(boardDataOffset, boardDataOffset + 64), 16);
+      const boardArrayHex = result.substring(boardDataOffset + 64);
+      
+      const boardArray = [];
+      for(let i = 0; i < boardLength; i++) {
+          boardArray.push(parseInt(boardArrayHex.substring(i * 64 + 2, (i + 1) * 64), 16));
+      }
 
-                const network = await provider.getNetwork();
-                // Ensure the user is on the Somnia Testnet
-                if (network.chainId !== 50312) {
-                    showMessage("Wrong Network", "Please connect to the Somnia Testnet (Chain ID: 50312).");
-                    isConnecting = false;
-                    connectWalletBtn.disabled = false;
-                    connectWalletBtn.textContent = 'Connect Wallet';
-                    return;
-                }
+      const size = parseInt(result.substring(2, 2 + 64), 16);
+      const mines = parseInt(result.substring(2 + 64, 2 + 2 * 64), 16);
+      const tiles = parseInt(result.substring(2 + 2 * 64, 2 + 3 * 64), 16);
+      const active = parseInt(result.substring(2 + 3 * 64, 2 + 4 * 64), 16) === 1;
 
-                signer = provider.getSigner();
-                userAddress = await signer.getAddress();
-                
-                // Initialize the contract instance
-                contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-                // Switch UI to game mode
-                connectWalletSection.classList.add('hidden');
-                gameUiSection.classList.remove('hidden');
-
-                // Start listening for events and update UI
-                startEventListeners();
-                updateUI();
-            } catch (error) {
-                console.error("Error connecting wallet:", error);
-                showMessage("Connection Failed", "Could not connect to your wallet. Please check your browser's wallet extension.");
-                
-                // If connection fails, revert the UI
-                connectWalletSection.classList.remove('hidden');
-                gameUiSection.classList.add('hidden');
-            } finally {
-                isConnecting = false;
-                connectWalletBtn.disabled = false;
-                connectWalletBtn.textContent = 'Connect Wallet';
-            }
-        }
-
-        /**
-         * @dev Fetches all game state from the contract and updates the UI.
-         */
-        async function updateUI() {
-            if (!contract) return;
-            try {
-                const [p1, p2, currentP, state] = await Promise.all([
-                    contract.player1(),
-                    contract.player2(),
-                    contract.currentPlayer(),
-                    contract.gameState()
-                ]);
-
-                player1Address = p1;
-                player2Address = p2;
-                currentPlayerAddress = currentP;
-                const gameState = state.toNumber();
-
-                // Update player info badges
-                renderPlayerInfo(player1Address, player2Address, userAddress);
-
-                // Update game state text
-                gameStateText.textContent = gameStateLabels[gameState];
-
-                // Update current player turn text
-                if (gameState === 1) {
-                    const isMyTurn = currentPlayerAddress.toLowerCase() === userAddress.toLowerCase();
-                    currentPlayerText.innerHTML = `It's currently <span class="bg-yellow-500 text-yellow-900 font-bold rounded-full px-2 py-1 text-sm">${isMyTurn ? "Your" : truncateAddress(currentPlayerAddress)}</span> turn.`;
-                } else {
-                    currentPlayerText.textContent = '';
-                }
-
-                // Update the board
-                renderBoard(gameState);
-
-                // Update game action buttons
-                renderGameActions(gameState);
-                
-            } catch (error) {
-                console.error("Error updating UI:", error);
-                showMessage("Error", "Could not fetch game state from the blockchain.");
-            }
-        }
-
-        /**
-         * @dev Renders the player address badges.
-         * @param p1 The address of player 1.
-         * @param p2 The address of player 2.
-         * @param myAddress The current user's address.
-         */
-        function renderPlayerInfo(p1, p2, myAddress) {
-            playerInfoDiv.innerHTML = `
-                <div class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer px-3 py-1 rounded-full text-xs transition-colors duration-200">
-                    Your Address: ${truncateAddress(myAddress)}
-                </div>
-                ${p1 ? `
-                <div class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer px-3 py-1 rounded-full text-xs transition-colors duration-200">
-                    Player 1 (X): ${truncateAddress(p1)}
-                </div>` : ''}
-                ${p2 ? `
-                <div class="bg-red-500 hover:bg-red-600 text-white cursor-pointer px-3 py-1 rounded-full text-xs transition-colors duration-200">
-                    Player 2 (O): ${truncateAddress(p2)}
-                </div>` : ''}
-            `;
-        }
-
-        /**
-         * @dev Renders the game board grid.
-         * @param gameState The current state of the game.
-         */
-        async function renderBoard(gameState) {
-            boardGrid.innerHTML = ''; // Clear the board
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    const state = (await contract.board(i, j)).toNumber();
-                    const isClickable = gameState === 1 && userAddress.toLowerCase() === currentPlayerAddress.toLowerCase() && state === 0;
-
-                    let iconSvg = '';
-                    if (state === 1) { // Player 1
-                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
-                    } else if (state === 2) { // Player 2
-                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"/></svg>`;
-                    }
-
-                    const cellClasses = `
-                        flex items-center justify-center p-2 rounded-lg transition-all duration-200
-                        ${isClickable ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed'}
-                        ${gameState === 1 && userAddress.toLowerCase() === currentPlayerAddress.toLowerCase() ? 'border-4 border-dashed border-blue-300' : 'border-2 border-gray-300'}
-                        bg-white shadow-sm
-                    `;
-                    
-                    const cell = document.createElement('div');
-                    cell.className = cellClasses;
-                    cell.setAttribute('data-row', i);
-                    cell.setAttribute('data-col', j);
-                    cell.innerHTML = iconSvg;
-                    cell.addEventListener('click', () => {
-                        if (isClickable) {
-                            handleMakeMove(i, j);
-                        }
-                    });
-                    boardGrid.appendChild(cell);
-                }
-            }
-        }
-
-        /**
-         * @dev Renders the game action buttons based on the game state.
-         * @param gameState The current state of the game.
-         */
-        function renderGameActions(gameState) {
-            gameActionsDiv.innerHTML = ''; // Clear buttons
-
-            if (gameState === 0 && userAddress.toLowerCase() !== player1Address.toLowerCase()) {
-                // Show join game button
-                const joinButton = document.createElement('button');
-                joinButton.id = 'join-game-btn';
-                joinButton.className = 'bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full py-2 px-6 transition-colors duration-200';
-                joinButton.textContent = 'Join Game';
-                joinButton.addEventListener('click', handleJoinGame);
-                gameActionsDiv.appendChild(joinButton);
-            }
-            
-            if ((gameState === 2 || gameState === 3 || gameState === 4) && 
-                (userAddress.toLowerCase() === player1Address.toLowerCase() || userAddress.toLowerCase() === player2Address.toLowerCase())) {
-                // Show reset game button
-                const resetButton = document.createElement('button');
-                resetButton.id = 'reset-game-btn';
-                resetButton.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full py-2 px-6 transition-colors duration-200 flex items-center';
-                resetButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 icon"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Reset Game`;
-                resetButton.addEventListener('click', handleResetGame);
-                gameActionsDiv.appendChild(resetButton);
-            }
-        }
+      if (active) {
+        setBoardSize(size);
+        setBoard(boardArray);
+        setGameStatus('Game in progress...');
         
-        // --- Game Logic Functions ---
+        const myHighScoreCallData = encodeFunctionData('getMyHighScore', [], []);
+        const highScoreResult = await readContract(myHighScoreCallData);
+        setHighScore(parseInt(highScoreResult, 16));
+      } else {
+        setGameStatus('No active game. Start a new one!');
+        setBoard([]);
+      }
+    } catch (error) {
+      console.error('Error fetching game state:', error);
+      setGameStatus('Error fetching game state. Please check console.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        async function handleJoinGame() {
-            if (!contract) return;
-            try {
-                const tx = await contract.joinGame();
-                await tx.wait();
-                showMessage("Joined Game", "You have successfully joined the game!");
-                updateUI();
-            } catch (error) {
-                console.error("Error joining game:", error);
-                showMessage("Transaction Failed", "Could not join the game. Check the console for details.");
-            }
-        }
+  const startNewGame = async (size, mines) => {
+    if (!address || isLoading) return;
+    setIsLoading(true);
+    try {
+      const seed = Math.random().toString(36).substring(2, 15);
+      const callData = encodeFunctionData('newGame', ['uint8', 'uint8', 'string'], [size, mines, seed]);
+      const txHash = await sendTransaction(callData);
+      setGameStatus(`New game started! Transaction: ${txHash}. Waiting for confirmation...`);
+      // A simple poll to wait for the transaction to be mined.
+      setTimeout(() => fetchGameState(), 5000);
+    } catch (error) {
+      console.error('Error starting new game:', error);
+      setGameStatus('Error starting game. Please check console.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        async function handleMakeMove(row, col) {
-            if (!contract) return;
-            if (userAddress.toLowerCase() !== currentPlayerAddress.toLowerCase()) {
-                showMessage("Not Your Turn", "It is not your turn to make a move.");
-                return;
-            }
-            try {
-                const tx = await contract.makeMove(row, col);
-                await tx.wait();
-                showMessage("Move Made", "Your move has been submitted to the blockchain!");
-                updateUI();
-            } catch (error) {
-                console.error("Error making move:", error);
-                showMessage("Transaction Failed", "Could not make the move. Is the square already taken or is it not your turn?");
-            }
-        }
+  const revealTile = async (x, y) => {
+    if (!address || isLoading) return;
+    setIsLoading(true);
+    try {
+      const callData = encodeFunctionData('revealTile', ['uint8', 'uint8'], [x, y]);
+      const txHash = await sendTransaction(callData);
+      setGameStatus(`Revealing tile (${x}, ${y}). Transaction: ${txHash}. Waiting for confirmation...`);
+      // A simple poll to wait for the transaction to be mined.
+      setTimeout(() => fetchGameState(), 5000);
+    } catch (error) {
+      console.error('Error revealing tile:', error);
+      setGameStatus('Error revealing tile. Please check console.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        async function handleResetGame() {
-            if (!contract) return;
-            try {
-                const tx = await contract.resetGame();
-                await tx.wait();
-                showMessage("Game Reset", "The game has been reset and a new round has started!");
-                updateUI();
-            } catch (error) {
-                console.error("Error resetting game:", error);
-                showMessage("Transaction Failed", "Could not reset the game. Make sure the game is over and you are a player.");
-            }
-        }
+  useEffect(() => {
+    if (address) {
+      fetchGameState();
+    }
+  }, [address]);
 
-        // --- Event Listeners ---
+  const renderBoard = () => {
+    if (board.length === 0) return null;
+    return (
+      <div
+        className="grid gap-1 m-4"
+        style={{
+          gridTemplateColumns: `repeat(${boardSize}, minmax(0, 1fr))`,
+          width: 'min(90vw, 500px)',
+        }}
+      >
+        {board.map((tileValue, index) => {
+          const x = Math.floor(index / boardSize);
+          const y = index % boardSize;
+          // The board array from the contract returns the actual tile value.
+          // 10 is used to represent a revealed tile, 9 is a mine.
+          const isRevealed = tileValue >= 0 && tileValue <= 8; 
+          const isMine = tileValue === 9;
 
-        function startEventListeners() {
-            // Listen for events to update the UI in real-time
-            contract.on("GameStarted", () => {
-                console.log("GameStarted event received!");
-                updateUI();
-            });
+          return (
+            <button
+              key={index}
+              className={`
+                aspect-square rounded-md shadow-inner transition-colors duration-200
+                ${isRevealed ? 'bg-gray-200 text-gray-700' : 'bg-somnia-accent hover:bg-somnia-accent-light text-white'}
+                ${isMine ? 'bg-red-500' : ''}
+              `}
+              onClick={() => !isRevealed && !isMine && revealTile(x, y)}
+              disabled={isLoading || isRevealed || isMine || !gameStatus.includes('in progress')}
+            >
+              {isRevealed && (
+                <span className="font-bold text-lg">
+                  {tileValue > 0 ? tileValue : ''}
+                </span>
+              )}
+              {isMine && <span className="text-xl">💣</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+  
+  return (
+    <div className="min-h-screen bg-somnia-bg text-somnia-text font-sans flex flex-col items-center justify-center p-4">
+      <div className="bg-white p-6 rounded-3xl shadow-xl max-w-xl w-full text-center">
+        <h1 className="text-4xl font-bold text-somnia-text mb-4">Mystery Mine</h1>
+        
+        <div className="mb-4">
+          <button
+            onClick={connectWallet}
+            className="px-6 py-3 bg-somnia-primary text-white rounded-full shadow-lg hover:bg-somnia-secondary transition duration-300 transform hover:scale-105"
+          >
+            {address ? `Connected: ${address.slice(0, 6)}...${address.slice(-4)}` : 'Connect Wallet'}
+          </button>
+        </div>
+        
+        {address && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold mb-2">Game Controls</h2>
+            <div className="flex justify-center space-x-4 mb-4">
+              <button
+                onClick={() => startNewGame(9, 10)}
+                disabled={isLoading}
+                className="px-4 py-2 bg-purple-500 text-white rounded-full shadow-md hover:bg-purple-600 transition duration-300"
+              >
+                Easy (9x9, 10 mines)
+              </button>
+              <button
+                onClick={() => startNewGame(16, 40)}
+                disabled={isLoading}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-full shadow-md hover:bg-indigo-600 transition duration-300"
+              >
+                Medium (16x16, 40 mines)
+              </button>
+            </div>
+            
+            <p className="text-lg font-medium text-gray-600">Status: {gameStatus}</p>
+            {isLoading && (
+              <div className="mt-2 text-somnia-secondary animate-pulse">Processing transaction...</div>
+            )}
+            <p className="text-xl font-bold mt-2">High Score: {highScore.toString()}</p>
+          </div>
+        )}
+        
+        {renderBoard()}
+      </div>
+    </div>
+  );
+}
 
-            contract.on("MoveMade", () => {
-                console.log("MoveMade event received!");
-                updateUI();
-            });
+// Tailwind CSS for Somnia branding (assuming Somnia has brand colors)
+const tailwindConfig = {
+  theme: {
+    extend: {
+      colors: {
+        'somnia-bg': '#f3f4f6',
+        'somnia-text': '#1f2937',
+        'somnia-primary': '#4f46e5', // A deep purple
+        'somnia-secondary': '#6366f1', // A lighter purple
+        'somnia-accent': '#c4b5fd', // A very light purple/lavender
+        'somnia-accent-light': '#ddd6fe',
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+      },
+    },
+  },
+};
 
-            contract.on("GameEnded", (winner) => {
-                console.log("GameEnded event received!", winner);
-                updateUI();
-            });
-
-            // Listen for account and network changes to update the UI
-            window.ethereum.on('accountsChanged', (accounts) => {
-                console.log("Accounts changed event received:", accounts);
-                if (accounts.length === 0) {
-                    // Wallet disconnected, revert to connect screen
-                    connectWalletSection.classList.remove('hidden');
-                    gameUiSection.classList.add('hidden');
-                } else {
-                    updateUI(); // A different account was selected
-                }
-            });
-
-            window.ethereum.on('chainChanged', (chainId) => {
-                console.log("Chain changed event received:", chainId);
-                // Force a reload to handle network change cleanly
-                window.location.reload();
-            });
-        }
-
-        // Add event listener to the "Connect Wallet" button
-        connectWalletBtn.addEventListener('click', connectWallet);
-
-    </script>
-</body>
-</html>
+export default App;
