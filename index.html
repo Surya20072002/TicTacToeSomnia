@@ -425,7 +425,7 @@
         const checkNetworkAndGameState = async () => {
             if (!window.ethereum) return;
 
-            // Attempt to switch/add network silently
+            // Attempt to switch network silently
             if (window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
                 showMessage(`Attempting to switch to ${NETWORK_DETAILS.chainName}... Please confirm in your wallet.`, 'text-yellow-300');
                 try {
@@ -435,31 +435,15 @@
                     });
                     showMessage(`Switched to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
                 } catch (switchError) {
-                    if (switchError.code === 4902) {
-                        try {
-                            await window.ethereum.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [NETWORK_DETAILS],
-                            });
-                            showMessage(`Added and switched to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
-                        } catch (addError) {
-                            console.error("Error adding network:", addError);
-                            showMessage(`Failed to add/switch to ${NETWORK_DETAILS.chainName}. Please do so manually in your wallet.`, 'text-red-400');
-                            startGameBtn.disabled = true;
-                            startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                            betButtons.forEach(btn => btn.disabled = true);
-                            forceEndGameBtn.classList.add('hidden');
-                            return;
-                        }
-                    } else {
-                        console.error("Error switching network:", switchError);
-                        showMessage(`Failed to switch to ${NETWORK_DETAILS.chainName}. Please do so manually in your wallet.`, 'text-red-400');
-                        startGameBtn.disabled = true;
-                        startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                        betButtons.forEach(btn => btn.disabled = true);
-                        forceEndGameBtn.classList.add('hidden');
-                        return;
-                    }
+                    // If switching fails, it means the network is not added or user rejected.
+                    // We will no longer attempt to add it automatically.
+                    console.error("Error switching network:", switchError);
+                    showMessage(`Failed to switch to ${NETWORK_DETAILS.chainName}. Please do so manually in your wallet.`, 'text-red-400');
+                    startGameBtn.disabled = true;
+                    startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    betButtons.forEach(btn => btn.disabled = true);
+                    forceEndGameBtn.classList.add('hidden');
+                    return;
                 }
             } else {
                 showMessage(`Connected to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
@@ -786,7 +770,7 @@
             showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
             try {
                 const tx = await contract.endGame(ethers.constants.AddressZero, false);
-                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300'); // Fixed missing quote here
+                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300');
                 await tx.wait();
                 showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
                 await getContractGameState();
