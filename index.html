@@ -641,12 +641,23 @@
                 return;
             }
 
-            // Before starting, check contract state again to be sure
-            const contractGameActive = await contract.gameActive();
-            if (contractGameActive) {
-                showMessage("A game is already active on the contract. Cannot start a new one.", 'text-red-400');
+            // Crucial: Re-check contract state immediately before sending transaction
+            try {
+                const contractGameActive = await contract.gameActive();
+                if (contractGameActive) {
+                    showMessage("Failed to place bet: A game is already active on the contract. Please complete it or wait.", 'text-red-400');
+                    // Also update UI to reflect this state
+                    startGameBtn.disabled = true;
+                    startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    betButtons.forEach(btn => btn.disabled = true);
+                    return;
+                }
+            } catch (error) {
+                console.error("Error checking contract game state before starting:", error);
+                showMessage("Error verifying game state with contract. Please try again.", 'text-red-400');
                 return;
             }
+
 
             showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
             
