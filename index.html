@@ -425,26 +425,14 @@
         const checkNetworkAndGameState = async () => {
             if (!window.ethereum) return;
 
-            // Attempt to switch network silently
+            // Check if the current chain ID matches the required network
             if (window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
-                showMessage(`Attempting to switch to ${NETWORK_DETAILS.chainName}... Please confirm in your wallet.`, 'text-yellow-300');
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: NETWORK_DETAILS.chainId }],
-                    });
-                    showMessage(`Switched to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
-                } catch (switchError) {
-                    // If switching fails, it means the network is not added or user rejected.
-                    // We will no longer attempt to add it automatically.
-                    console.error("Error switching network:", switchError);
-                    showMessage(`Failed to switch to ${NETWORK_DETAILS.chainName}. Please do so manually in your wallet.`, 'text-red-400');
-                    startGameBtn.disabled = true;
-                    startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    betButtons.forEach(btn => btn.disabled = true);
-                    forceEndGameBtn.classList.add('hidden');
-                    return;
-                }
+                showMessage(`Please switch your wallet manually to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)}).`, 'text-red-400');
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                betButtons.forEach(btn => btn.disabled = true);
+                forceEndGameBtn.classList.add('hidden');
+                return; // Exit if not on the correct network
             } else {
                 showMessage(`Connected to ${NETWORK_DETAILS.chainName}.`, 'text-green-400');
             }
