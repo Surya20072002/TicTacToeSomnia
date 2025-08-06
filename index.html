@@ -98,6 +98,11 @@
             <button id="startGameBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-10 rounded-full shadow-xl opacity-50 cursor-not-allowed transition" disabled>
                 Connect Wallet
             </button>
+
+            <!-- Force End Game Button (for debugging stuck contract states) -->
+            <button id="forceEndGameBtn" class="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full shadow-lg hidden">
+                Force End Game (if stuck)
+            </button>
         </div>
         
         <!-- Credit line -->
@@ -335,6 +340,7 @@
         const txValue = document.getElementById('txValue');
         const txStatus = document.getElementById('txStatus'); // Added for transaction status
         const closeModalBtn = document.getElementById('closeModalBtn');
+        const forceEndGameBtn = document.getElementById('forceEndGameBtn'); // New button element
 
         // --- GAME STATE VARIABLES ---
         let provider;
@@ -390,6 +396,9 @@
                 resultModal.classList.add('hidden');
             });
 
+            // New: Event listener for Force End Game button
+            forceEndGameBtn.addEventListener('click', forceEndGame);
+
             createBoard();
         };
 
@@ -403,6 +412,7 @@
                 startGameBtn.textContent = 'Connect Wallet';
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 startGameBtn.disabled = true;
+                forceEndGameBtn.classList.add('hidden'); // Hide force end game button
             } else {
                 userAddress = accounts[0];
                 isWalletConnected = true;
@@ -430,6 +440,7 @@
                 showMessage(`Please switch to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)})`, 'text-red-400');
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                forceEndGameBtn.classList.add('hidden'); // Hide force end game button
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
@@ -480,13 +491,11 @@
                 const active = await contract.gameActive();
                 isGameActive = active;
                 if (isGameActive) {
-                    showMessage("A game is currently active on the contract. Finish it or wait for it to conclude.", 'text-red-400');
+                    showMessage("A game is currently active on the contract. Finish it or use 'Force End Game'.", 'text-red-400');
                     startGameBtn.disabled = true;
                     startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     betButtons.forEach(btn => btn.disabled = true);
-                    // Optionally, you could fetch the board state from the contract here
-                    // and display it to allow the user to continue the existing game.
-                    // For this simple example, we'll just prevent starting a new one.
+                    forceEndGameBtn.classList.remove('hidden'); // Show force end game button
                 } else {
                     if (betAmount > 0) {
                         startGameBtn.textContent = 'Start Game';
@@ -498,6 +507,7 @@
                         startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     }
                     betButtons.forEach(btn => btn.disabled = false);
+                    forceEndGameBtn.classList.add('hidden'); // Hide force end game button
                     showMessage('Wallet connected. Select your bet to start.', 'text-green-400');
                 }
             } catch (error) {
@@ -505,6 +515,7 @@
                 showMessage("Error fetching game state from contract. Please refresh.", 'text-red-400');
                 startGameBtn.disabled = true;
                 startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                forceEndGameBtn.classList.add('hidden'); // Hide force end game button on error
             }
         };
 
@@ -645,11 +656,12 @@
             try {
                 const contractGameActive = await contract.gameActive();
                 if (contractGameActive) {
-                    showMessage("Failed to place bet: A game is already active on the contract. Please complete it or wait.", 'text-red-400');
+                    showMessage("Failed to place bet: A game is already active on the contract. Please complete it or use 'Force End Game'.", 'text-red-400');
                     // Also update UI to reflect this state
                     startGameBtn.disabled = true;
                     startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     betButtons.forEach(btn => btn.disabled = true);
+                    forceEndGameBtn.classList.remove('hidden'); // Show force end game button
                     return;
                 }
             } catch (error) {
@@ -690,6 +702,7 @@
                 
                 // Disable bet buttons during the game
                 betButtons.forEach(btn => btn.disabled = true);
+                forceEndGameBtn.classList.add('hidden'); // Hide force end game button once game starts
 
             } catch (error) {
                 console.error("Error starting game or placing bet:", error);
@@ -703,6 +716,7 @@
                 startGameBtn.disabled = false;
                 startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 betButtons.forEach(btn => btn.disabled = false);
+                forceEndGameBtn.classList.remove('hidden'); // Show force end game button if transaction fails
             }
         };
 
@@ -719,6 +733,7 @@
 
             // Re-enable bet buttons
             betButtons.forEach(btn => btn.disabled = false);
+            forceEndGameBtn.classList.add('hidden'); // Hide force end game button on normal end
 
             showMessage("Ending game and processing payout...", 'text-yellow-300');
             try {
@@ -745,6 +760,29 @@
             } catch (error) {
                 console.error("Error ending game or processing payout:", error);
                 showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Check console for details.'}`, false, 0); // Indicate failure
+                forceEndGameBtn.classList.remove('hidden'); // Show force end game button if payout fails
+            }
+        };
+
+        // New function to force end the game on the contract
+        const forceEndGame = async () => {
+            if (!isWalletConnected || !contract) {
+                showMessage('Wallet not connected or contract not initialized.', 'text-red-400');
+                return;
+            }
+            showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
+            try {
+                // Call endGame with zero address and not a draw, effectively resetting the game
+                // This assumes the contract owner (which is likely you, the deployer) can call this.
+                const tx = await contract.endGame(ethers.constants.AddressZero, false);
+                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+                showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
+                // Re-sync UI after successful force end
+                await getContractGameState();
+            } catch (error) {
+                console.error("Error forcing end game:", error);
+                showMessage(`Failed to force end game. ${error.message || 'Transaction rejected.'}`, 'text-red-400');
             }
         };
         
