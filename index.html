@@ -3,136 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Somnia Tic-Tac-Toe</title>
+    <title>Tic-Tac-Toe dApp</title>
+    <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- Inter font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Ethers.js CDN for blockchain interaction -->
+    <script src="https://cdn.ethers.io/scripts/ethers-v5.7.2.umd.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: white;
-            overflow: hidden;
         }
-        .game-board {
-            display: grid;
-            grid-template-columns: repeat(3, 100px);
-            grid-template-rows: repeat(3, 100px);
-            gap: 10px;
-            margin-top: 2rem;
-        }
-        .cell {
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 3rem;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-        .cell:hover:not([disabled]) {
-            background-color: rgba(255, 255, 255, 0.2);
-            transform: scale(1.05);
-        }
-        .cell.player-1 { color: #f9d923; }
-        .cell.player-2 { color: #50c4f8; }
-        .message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 10px;
-            z-index: 1000;
-            display: none;
-            transition: opacity 0.3s ease-in-out;
-        }
-        .message-box.show {
-            display: block;
-            opacity: 1;
-        }
-        .disabled {
-            cursor: not-allowed;
-            opacity: 0.6;
+        .icon {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            stroke-width: 2;
+            stroke: currentColor;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
     </style>
 </head>
-<body class="p-8">
-    <div id="app" class="flex flex-col items-center">
-        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-lg w-full flex flex-col items-center text-gray-800">
-            <h1 class="text-3xl font-bold mb-4">Tic Tac Toe on Somnia</h1>
+<body class="bg-gray-50 flex items-center justify-center p-4 min-h-screen antialiased">
 
-            <div id="account-info" class="text-sm text-gray-500 mb-4 text-center hidden">
-                <p>Connected as: <span id="account-address" class="font-mono text-gray-700"></span></p>
-                <p id="player1-info" class="mt-1"></p>
-                <p id="player2-info" class="mt-1"></p>
+    <div id="app" class="container mx-auto max-w-2xl">
+        <div id="card" class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div id="card-header" class="text-center p-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                <h1 class="text-4xl font-extrabold tracking-tight">Tic-Tac-Toe dApp</h1>
+                <p class="text-blue-100 mt-2 text-md">A multiplayer game on the Somnia Testnet</p>
             </div>
-            
-            <div id="game-container" class="hidden">
-                <div id="gameBoard" class="grid grid-cols-3 gap-2 p-2 bg-gray-200 rounded-lg shadow-inner">
-                    <button class="cell" data-index="0"></button>
-                    <button class="cell" data-index="1"></button>
-                    <button class="cell" data-index="2"></button>
-                    <button class="cell" data-index="3"></button>
-                    <button class="cell" data-index="4"></button>
-                    <button class="cell" data-index="5"></button>
-                    <button class="cell" data-index="6"></button>
-                    <button class="cell" data-index="7"></button>
-                    <button class="cell" data-index="8"></button>
+            <div id="card-content" class="p-6 space-y-6">
+                <!-- Connect Wallet Section -->
+                <div id="connect-wallet-section" class="flex flex-col items-center gap-4 text-center">
+                    <h3 class="text-xl font-semibold">Connect your wallet to play</h3>
+                    <p class="text-gray-500">
+                        You need to use a wallet like MetaMask and connect it to the Somnia Testnet.
+                    </p>
+                    <button id="connect-wallet-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full transition-colors duration-200">
+                        Connect Wallet
+                    </button>
+                </div>
+
+                <!-- Game UI Section (Hidden by default) -->
+                <div id="game-ui-section" class="hidden flex flex-col items-center gap-6">
+                    <div class="flex items-center gap-4 flex-wrap justify-center text-sm font-medium" id="player-info">
+                        <!-- Player badges will be dynamically inserted here -->
+                    </div>
+                    <div class="flex flex-col items-center gap-2 text-center w-full">
+                        <h4 class="text-2xl font-bold tracking-tight">
+                            Game State: <span class="text-purple-600" id="game-state-text"></span>
+                        </h4>
+                        <p class="text-lg text-gray-700" id="current-player-text">
+                            <!-- Current player turn will be dynamically inserted here -->
+                        </p>
+                    </div>
+
+                    <div id="board-grid" class="grid grid-cols-3 gap-4 w-full aspect-square max-w-sm">
+                        <!-- Board squares will be dynamically inserted here -->
+                    </div>
+
+                    <div id="game-actions" class="flex gap-4 mt-4">
+                        <!-- Game action buttons will be dynamically inserted here -->
+                    </div>
+                </div>
+
+                <!-- Message Box -->
+                <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+                    <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+                        <h3 id="message-box-title" class="text-lg font-bold mb-2"></h3>
+                        <p id="message-box-text" class="text-gray-600 mb-4"></p>
+                        <button id="message-box-close" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">
+                            OK
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <p id="status-message" class="mt-6 text-lg font-bold text-gray-800">Please connect your wallet to play.</p>
-            
-            <div id="message-container" class="mt-4 p-3 bg-indigo-100 text-indigo-800 rounded-lg text-center font-medium hidden"></div>
-
-            <button id="connect-wallet-btn" class="mt-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
-                Connect Wallet
-            </button>
-            <button id="join-game-btn" class="mt-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors hidden">
-                Join Game
-            </button>
+            <div id="card-footer" class="flex justify-center p-4 bg-gray-50 text-gray-400 text-xs">
+                Powered by Somnia Network & deployed via Vercel
+            </div>
         </div>
     </div>
-    <div id="messageBox" class="message-box opacity-0"></div>
 
     <script>
-        // --- CONFIGURATION ---
-        const CONTRACT_ADDRESS = "0xC2EF20399F24F74E23CeE8acCD2D56C9528BECb7";
-        const SOMNIA_CHAIN_ID = 50312; // Chain ID for Somnia Testnet
+        // IMPORTANT: The contract address has been updated to your provided value.
+        const contractAddress = "0xf9E24384B638aF3D3425918D35d146BFA7ebd4bd";
 
+        // IMPORTANT: The contract ABI has been updated to your provided value.
         const contractABI = [
-            {
-                "inputs": [],
-                "name": "joinGame",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint8",
-                        "name": "position",
-                        "type": "uint8"
-                    }
-                ],
-                "name": "makeMove",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
             {
                 "inputs": [],
                 "stateMutability": "nonpayable",
@@ -144,13 +106,26 @@
                     {
                         "indexed": true,
                         "internalType": "address",
-                        "name": "p1",
+                        "name": "winner",
+                        "type": "address"
+                    }
+                ],
+                "name": "GameEnded",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "player1",
                         "type": "address"
                     },
                     {
                         "indexed": true,
                         "internalType": "address",
-                        "name": "p2",
+                        "name": "player2",
                         "type": "address"
                     }
                 ],
@@ -158,17 +133,29 @@
                 "type": "event"
             },
             {
-                "anonymous": false,
+                "inputs": [],
+                "name": "joinGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
                 "inputs": [
                     {
-                        "indexed": false,
-                        "internalType": "uint8",
-                        "name": "finalState",
-                        "type": "uint8"
+                        "internalType": "uint256",
+                        "name": "row",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "col",
+                        "type": "uint256"
                     }
                 ],
-                "name": "GameOver",
-                "type": "event"
+                "name": "makeMove",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
             },
             {
                 "anonymous": false,
@@ -181,22 +168,34 @@
                     },
                     {
                         "indexed": false,
-                        "internalType": "uint8",
-                        "name": "position",
-                        "type": "uint8"
+                        "internalType": "uint256",
+                        "name": "row",
+                        "type": "uint256"
                     },
                     {
                         "indexed": false,
-                        "internalType": "uint8",
-                        "name": "value",
-                        "type": "uint8"
+                        "internalType": "uint256",
+                        "name": "col",
+                        "type": "uint256"
                     }
                 ],
                 "name": "MoveMade",
                 "type": "event"
             },
             {
+                "inputs": [],
+                "name": "resetGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
                 "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
                     {
                         "internalType": "uint256",
                         "name": "",
@@ -206,20 +205,7 @@
                 "name": "board",
                 "outputs": [
                     {
-                        "internalType": "uint8",
-                        "name": "",
-                        "type": "uint8"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "checkWinner",
-                "outputs": [
-                    {
-                        "internalType": "uint8",
+                        "internalType": "enum TicTacToe.SquareState",
                         "name": "",
                         "type": "uint8"
                     }
@@ -242,25 +228,12 @@
             },
             {
                 "inputs": [],
-                "name": "gameActive",
+                "name": "gameState",
                 "outputs": [
                     {
-                        "internalType": "bool",
+                        "internalType": "enum TicTacToe.GameState",
                         "name": "",
-                        "type": "bool"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "getBoard",
-                "outputs": [
-                    {
-                        "internalType": "uint8[9]",
-                        "name": "",
-                        "type": "uint8[9]"
+                        "type": "uint8"
                     }
                 ],
                 "stateMutability": "view",
@@ -294,217 +267,310 @@
             }
         ];
 
-        // --- DOM ELEMENTS ---
-        const connectWalletBtn = document.getElementById("connect-wallet-btn");
-        const joinGameBtn = document.getElementById("join-game-btn");
-        const gameBoard = document.getElementById("gameBoard");
-        const statusMessage = document.getElementById("status-message");
-        const accountAddressEl = document.getElementById("account-address");
-        const player1InfoEl = document.getElementById("player1-info");
-        const player2InfoEl = document.getElementById("player2-info");
-        const accountInfoEl = document.getElementById("account-info");
-        const gameContainerEl = document.getElementById("game-container");
-        const messageContainerEl = document.getElementById("message-container");
+        const gameStateLabels = {
+          0: "Waiting for Player 2",
+          1: "In Progress",
+          2: "Player 1 Won",
+          3: "Player 2 Won",
+          4: "Draw",
+        };
 
-        // --- GAME STATE VARIABLES ---
-        let provider, signer, contract;
-        let userAccount;
-        let isGameActive;
-        let winner;
+        const app = document.getElementById('app');
+        const connectWalletBtn = document.getElementById('connect-wallet-btn');
+        const connectWalletSection = document.getElementById('connect-wallet-section');
+        const gameUiSection = document.getElementById('game-ui-section');
+        const playerInfoDiv = document.getElementById('player-info');
+        const gameStateText = document.getElementById('game-state-text');
+        const currentPlayerText = document.getElementById('current-player-text');
+        const boardGrid = document.getElementById('board-grid');
+        const gameActionsDiv = document.getElementById('game-actions');
+        const messageBox = document.getElementById('message-box');
+        const messageBoxTitle = document.getElementById('message-box-title');
+        const messageBoxText = document.getElementById('message-box-text');
+        const messageBoxCloseBtn = document.getElementById('message-box-close');
+
+        let provider;
+        let signer;
+        let contract;
+        let userAddress;
+        let player1Address;
+        let player2Address;
         let currentPlayerAddress;
 
-        // --- HELPER FUNCTIONS ---
-        function showMessage(message, isError = false) {
-            messageContainerEl.textContent = message;
-            messageContainerEl.classList.remove('hidden');
-            if (isError) {
-                messageContainerEl.classList.remove('bg-indigo-100', 'text-indigo-800');
-                messageContainerEl.classList.add('bg-red-100', 'text-red-800');
-            } else {
-                messageContainerEl.classList.add('bg-indigo-100', 'text-indigo-800');
-                messageContainerEl.classList.remove('bg-red-100', 'text-red-800');
-            }
+        // --- Utility Functions ---
+
+        /**
+         * @dev Shows a custom message box instead of using alert().
+         * @param title The title of the message box.
+         * @param message The message to display.
+         */
+        function showMessage(title, message) {
+            messageBoxTitle.textContent = title;
+            messageBoxText.textContent = message;
+            messageBox.classList.remove('hidden');
         }
 
-        async function fetchGameState() {
-            if (!contract) {
-                console.warn("Contract not initialized. Skipping state fetch.");
-                return;
-            }
+        messageBoxCloseBtn.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
 
-            try {
-                const board = await contract.getBoard();
-                const [active, winnerValue, current, p1, p2] = await Promise.all([
-                    contract.gameActive(),
-                    contract.checkWinner(),
-                    contract.currentPlayer(),
-                    contract.player1(),
-                    contract.player2()
-                ]);
-
-                isGameActive = active;
-                winner = Number(winnerValue);
-                currentPlayerAddress = current;
-
-                renderBoard(board.map(Number));
-                updateStatus(isGameActive, winner, current, p1, p2, board.map(Number));
-                updatePlayerInfo(p1, p2);
-
-            } catch (err) {
-                console.error("Error fetching game state:", err);
-                showMessage("Failed to fetch game state. Check console.", true);
-            }
+        function truncateAddress(address) {
+            if (!address) return '';
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
         }
 
-        function renderBoard(board) {
-            const cells = gameBoard.querySelectorAll('.cell');
-            cells.forEach((cell, i) => {
-                cell.textContent = "";
-                cell.classList.remove('player-1', 'player-2');
-                cell.disabled = true;
+        // --- Blockchain Interaction Functions ---
 
-                if (board[i] === 1) {
-                    cell.textContent = "❌";
-                    cell.classList.add('player-1');
-                } else if (board[i] === 2) {
-                    cell.textContent = "⭕";
-                    cell.classList.add('player-2');
-                }
-                
-                if (isGameActive && winner === 0 && currentPlayerAddress.toLowerCase() === userAccount.toLowerCase() && board[i] === 0) {
-                    cell.disabled = false;
-                }
-            });
-        }
-
-        function updateStatus(active, winnerValue, current, p1, p2, board) {
-            let statusText = "Please connect your wallet.";
-            joinGameBtn.classList.add('hidden');
-
-            if (winnerValue === 1) {
-                statusText = "❌ Player 1 wins!";
-            } else if (winnerValue === 2) {
-                statusText = "⭕ Player 2 wins!";
-            } else if (!active && board.every(c => c !== 0)) {
-                statusText = "🤝 It's a draw!";
-            } else if (!active) {
-                statusText = "Waiting for another player to join...";
-                if (userAccount && p1 && p1.toLowerCase() !== userAccount.toLowerCase()) {
-                    joinGameBtn.classList.remove('hidden');
-                }
-            } else if (active) {
-                if (current.toLowerCase() === userAccount.toLowerCase()) {
-                    statusText = "🎯 Your Turn";
-                } else {
-                    statusText = "⏳ Waiting for Opponent";
-                }
-            }
-            statusMessage.textContent = statusText;
-        }
-
-        function updatePlayerInfo(p1, p2) {
-            accountInfoEl.classList.remove('hidden');
-            if (p1) {
-                player1InfoEl.textContent = `Player 1 (X): ${p1.substring(0, 6)}...`;
-            }
-            if (p2 && p2 !== ethers.constants.AddressZero) {
-                player2InfoEl.textContent = `Player 2 (O): ${p2.substring(0, 6)}...`;
-            } else {
-                player2InfoEl.textContent = `Player 2: Waiting...`;
-            }
-        }
-
+        /**
+         * @dev Connects the user's wallet and initializes the contract instance.
+         */
         async function connectWallet() {
             if (typeof window.ethereum === 'undefined') {
-                showMessage("MetaMask is not installed. Please install it to play.", true);
+                showMessage("Wallet Not Found", "Please install a browser wallet like MetaMask and refresh the page.");
                 return;
             }
 
             try {
+                // Request accounts and create a provider
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                const network = await provider.getNetwork();
+                provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
 
-                if (network.chainId !== SOMNIA_CHAIN_ID) {
-                    throw new Error(`Please switch to the Somnia Testnet (Chain ID: ${SOMNIA_CHAIN_ID}).`);
+                const network = await provider.getNetwork();
+                // Ensure the user is on the Somnia Testnet
+                if (network.chainId !== 50312) {
+                    showMessage("Wrong Network", "Please connect to the Somnia Testnet (Chain ID: 50312).");
+                    return;
                 }
 
                 signer = provider.getSigner();
-                userAccount = await signer.getAddress();
-                accountAddressEl.textContent = `${userAccount.substring(0, 6)}...${userAccount.substring(userAccount.length - 4)}`;
+                userAddress = await signer.getAddress();
                 
-                contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
-                
-                connectWalletBtn.classList.add('hidden');
-                gameContainerEl.classList.remove('hidden');
-                
-                // Note: Your contract's ABI does not contain event definitions,
-                // so these event listeners will not work and may cause an error.
-                // The frontend will rely on polling for updates instead.
-                // I have commented them out to prevent errors.
-                // contract.on("GameStarted", (p1, p2) => {
-                //     showMessage("Game started!");
-                //     fetchGameState();
-                // });
-                // contract.on("MoveMade", (player, position, value) => {
-                //     showMessage(`Player ${value === 1 ? 'X' : 'O'} made a move!`);
-                //     fetchGameState();
-                // });
-                // contract.on("GameOver", (finalState) => {
-                //     let winMsg = "Game Over!";
-                //     if (finalState === 1) winMsg = "Player 1 Wins!";
-                //     if (finalState === 2) winMsg = "Player 2 Wins!";
-                //     if (finalState === 3) winMsg = "It's a draw!";
-                //     showMessage(winMsg);
-                //     fetchGameState();
-                // });
+                // Initialize the contract instance
+                contract = new ethers.Contract(contractAddress, contractABI, signer);
 
-                // Initial fetch and then poll for updates every 3 seconds
-                fetchGameState();
-                setInterval(fetchGameState, 3000);
+                // Switch UI to game mode
+                connectWalletSection.classList.add('hidden');
+                gameUiSection.classList.remove('hidden');
 
-            } catch (err) {
-                console.error("Error in connectWallet:", err);
-                const errorMessage = err.message || "An error occurred.";
-                showMessage(errorMessage, true);
+                // Start listening for events and update UI
+                startEventListeners();
+                updateUI();
+            } catch (error) {
+                console.error("Error connecting wallet:", error);
+                showMessage("Connection Failed", "Could not connect to your wallet. Please check your browser's wallet extension.");
             }
         }
 
-        async function handleMove(event) {
-            if (!contract || !isGameActive) return;
-            const position = event.target.dataset.index;
-            
+        /**
+         * @dev Fetches all game state from the contract and updates the UI.
+         */
+        async function updateUI() {
+            if (!contract) return;
             try {
-                const tx = await contract.makeMove(parseInt(position));
-                showMessage("Transaction sent... waiting for confirmation.");
-                await tx.wait();
-                // The polling will handle the state update after the transaction
-            } catch (err) {
-                console.error("Transaction failed:", err);
-                const reason = err.data?.message || err.message;
-                showMessage(reason.split('revert ')[1] || "An error occurred.", true);
+                const [p1, p2, currentP, state] = await Promise.all([
+                    contract.player1(),
+                    contract.player2(),
+                    contract.currentPlayer(),
+                    contract.gameState()
+                ]);
+
+                player1Address = p1;
+                player2Address = p2;
+                currentPlayerAddress = currentP;
+                const gameState = state.toNumber();
+
+                // Update player info badges
+                renderPlayerInfo(player1Address, player2Address, userAddress);
+
+                // Update game state text
+                gameStateText.textContent = gameStateLabels[gameState];
+
+                // Update current player turn text
+                if (gameState === 1) {
+                    const isMyTurn = currentPlayerAddress.toLowerCase() === userAddress.toLowerCase();
+                    currentPlayerText.innerHTML = `It's currently <span class="bg-yellow-500 text-yellow-900 font-bold rounded-full px-2 py-1 text-sm">${isMyTurn ? "Your" : truncateAddress(currentPlayerAddress)}</span> turn.`;
+                } else {
+                    currentPlayerText.textContent = '';
+                }
+
+                // Update the board
+                renderBoard(gameState);
+
+                // Update game action buttons
+                renderGameActions(gameState);
+                
+            } catch (error) {
+                console.error("Error updating UI:", error);
+                showMessage("Error", "Could not fetch game state from the blockchain.");
+            }
+        }
+
+        /**
+         * @dev Renders the player address badges.
+         * @param p1 The address of player 1.
+         * @param p2 The address of player 2.
+         * @param myAddress The current user's address.
+         */
+        function renderPlayerInfo(p1, p2, myAddress) {
+            playerInfoDiv.innerHTML = `
+                <div class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer px-3 py-1 rounded-full text-xs transition-colors duration-200">
+                    Your Address: ${truncateAddress(myAddress)}
+                </div>
+                ${p1 ? `
+                <div class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer px-3 py-1 rounded-full text-xs transition-colors duration-200">
+                    Player 1 (X): ${truncateAddress(p1)}
+                </div>` : ''}
+                ${p2 ? `
+                <div class="bg-red-500 hover:bg-red-600 text-white cursor-pointer px-3 py-1 rounded-full text-xs transition-colors duration-200">
+                    Player 2 (O): ${truncateAddress(p2)}
+                </div>` : ''}
+            `;
+        }
+
+        /**
+         * @dev Renders the game board grid.
+         * @param gameState The current state of the game.
+         */
+        async function renderBoard(gameState) {
+            boardGrid.innerHTML = ''; // Clear the board
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const state = (await contract.board(i, j)).toNumber();
+                    const isClickable = gameState === 1 && userAddress.toLowerCase() === currentPlayerAddress.toLowerCase() && state === 0;
+
+                    let iconSvg = '';
+                    if (state === 1) { // Player 1
+                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+                    } else if (state === 2) { // Player 2
+                        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"/></svg>`;
+                    }
+
+                    const cellClasses = `
+                        flex items-center justify-center p-2 rounded-lg transition-all duration-200
+                        ${isClickable ? 'cursor-pointer hover:bg-gray-100' : 'cursor-not-allowed'}
+                        ${gameState === 1 && userAddress.toLowerCase() === currentPlayerAddress.toLowerCase() ? 'border-4 border-dashed border-blue-300' : 'border-2 border-gray-300'}
+                        bg-white shadow-sm
+                    `;
+                    
+                    const cell = document.createElement('div');
+                    cell.className = cellClasses;
+                    cell.setAttribute('data-row', i);
+                    cell.setAttribute('data-col', j);
+                    cell.innerHTML = iconSvg;
+                    cell.addEventListener('click', () => {
+                        if (isClickable) {
+                            handleMakeMove(i, j);
+                        }
+                    });
+                    boardGrid.appendChild(cell);
+                }
+            }
+        }
+
+        /**
+         * @dev Renders the game action buttons based on the game state.
+         * @param gameState The current state of the game.
+         */
+        function renderGameActions(gameState) {
+            gameActionsDiv.innerHTML = ''; // Clear buttons
+
+            if (gameState === 0 && userAddress.toLowerCase() !== player1Address.toLowerCase()) {
+                // Show join game button
+                const joinButton = document.createElement('button');
+                joinButton.id = 'join-game-btn';
+                joinButton.className = 'bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full py-2 px-6 transition-colors duration-200';
+                joinButton.textContent = 'Join Game';
+                joinButton.addEventListener('click', handleJoinGame);
+                gameActionsDiv.appendChild(joinButton);
+            }
+            
+            if ((gameState === 2 || gameState === 3 || gameState === 4) && 
+                (userAddress.toLowerCase() === player1Address.toLowerCase() || userAddress.toLowerCase() === player2Address.toLowerCase())) {
+                // Show reset game button
+                const resetButton = document.createElement('button');
+                resetButton.id = 'reset-game-btn';
+                resetButton.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full py-2 px-6 transition-colors duration-200 flex items-center';
+                resetButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 icon"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Reset Game`;
+                resetButton.addEventListener('click', handleResetGame);
+                gameActionsDiv.appendChild(resetButton);
             }
         }
         
+        // --- Game Logic Functions ---
+
         async function handleJoinGame() {
             if (!contract) return;
             try {
                 const tx = await contract.joinGame();
-                showMessage("Joining game... waiting for confirmation.");
                 await tx.wait();
-                joinGameBtn.classList.add('hidden');
-            } catch (err) {
-                console.error("Transaction failed:", err);
-                const reason = err.data?.message || err.message;
-                showMessage(reason.split('revert ')[1] || "An error occurred.", true);
+                showMessage("Joined Game", "You have successfully joined the game!");
+                updateUI();
+            } catch (error) {
+                console.error("Error joining game:", error);
+                showMessage("Transaction Failed", "Could not join the game. Check the console for details.");
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            connectWalletBtn.addEventListener('click', connectWallet);
-            gameBoard.addEventListener('click', handleMove);
-            joinGameBtn.addEventListener('click', handleJoinGame);
+        async function handleMakeMove(row, col) {
+            if (!contract) return;
+            if (userAddress.toLowerCase() !== currentPlayerAddress.toLowerCase()) {
+                showMessage("Not Your Turn", "It is not your turn to make a move.");
+                return;
+            }
+            try {
+                const tx = await contract.makeMove(row, col);
+                await tx.wait();
+                showMessage("Move Made", "Your move has been submitted to the blockchain!");
+                updateUI();
+            } catch (error) {
+                console.error("Error making move:", error);
+                showMessage("Transaction Failed", "Could not make the move. Is the square already taken or is it not your turn?");
+            }
+        }
+
+        async function handleResetGame() {
+            if (!contract) return;
+            try {
+                const tx = await contract.resetGame();
+                await tx.wait();
+                showMessage("Game Reset", "The game has been reset and a new round has started!");
+                updateUI();
+            } catch (error) {
+                console.error("Error resetting game:", error);
+                showMessage("Transaction Failed", "Could not reset the game. Make sure the game is over and you are a player.");
+            }
+        }
+
+        // --- Event Listeners ---
+
+        function startEventListeners() {
+            // Listen for events to update the UI in real-time
+            contract.on("GameStarted", () => {
+                console.log("GameStarted event received!");
+                updateUI();
+            });
+
+            contract.on("MoveMade", () => {
+                console.log("MoveMade event received!");
+                updateUI();
+            });
+
+            contract.on("GameEnded", (winner) => {
+                console.log("GameEnded event received!", winner);
+                updateUI();
+            });
+        }
+
+        // Add event listener to the "Connect Wallet" button
+        connectWalletBtn.addEventListener('click', connectWallet);
+
+        // Call this once on page load to check for existing connections
+        window.addEventListener('load', () => {
+            if (typeof window.ethereum !== 'undefined' && window.ethereum.selectedAddress) {
+                connectWallet();
+            }
         });
+
     </script>
 </body>
 </html>
