@@ -325,14 +325,54 @@
             }
         };
 
+        // Updated computerMove function with a simple strategic AI
         const computerMove = () => {
+            let moveIndex = -1;
             const availableMoves = boardState
                 .map((cell, index) => cell === '' ? index : null)
                 .filter(val => val !== null);
+            
+            // 1. Check for winning moves
+            for (const combination of WINNING_COMBINATIONS) {
+                const [a, b, c] = combination;
+                // Check if two 'O's are in a row with an empty spot
+                if (boardState[a] === 'O' && boardState[b] === 'O' && boardState[c] === '') moveIndex = c;
+                if (boardState[a] === 'O' && boardState[c] === 'O' && boardState[b] === '') moveIndex = b;
+                if (boardState[b] === 'O' && boardState[c] === 'O' && boardState[a] === '') moveIndex = a;
+                if (moveIndex !== -1) break;
+            }
 
-            // Simple random AI
-            const randomIndex = Math.floor(Math.random() * availableMoves.length);
-            const moveIndex = availableMoves[randomIndex];
+            // 2. Block the player's winning moves
+            if (moveIndex === -1) {
+                for (const combination of WINNING_COMBINATIONS) {
+                    const [a, b, c] = combination;
+                    // Check if two 'X's are in a row with an empty spot
+                    if (boardState[a] === 'X' && boardState[b] === 'X' && boardState[c] === '') moveIndex = c;
+                    if (boardState[a] === 'X' && boardState[c] === 'X' && boardState[b] === '') moveIndex = b;
+                    if (boardState[b] === 'X' && boardState[c] === 'X' && boardState[a] === '') moveIndex = a;
+                    if (moveIndex !== -1) break;
+                }
+            }
+
+            // 3. Take the center
+            if (moveIndex === -1 && boardState[4] === '') {
+                moveIndex = 4;
+            }
+
+            // 4. Take a corner
+            if (moveIndex === -1) {
+                const corners = [0, 2, 6, 8];
+                const availableCorners = corners.filter(index => boardState[index] === '');
+                if (availableCorners.length > 0) {
+                    moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
+                }
+            }
+
+            // 5. Take any remaining available spot
+            if (moveIndex === -1) {
+                moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+
 
             boardState[moveIndex] = 'O';
             const cell = gameBoard.querySelector(`[data-index="${moveIndex}"]`);
