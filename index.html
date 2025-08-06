@@ -68,7 +68,7 @@
 
         <!-- Header and Game Title -->
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600 mb-2">
+            <h1 class="text-4xl font-bold text-transparent bg-clip-clip bg-gradient-to-r from-blue-400 to-indigo-600 mb-2">
                 Somnia Tic-Tac-Toe
             </h1>
             <p class="text-gray-400">Play a game against a random AI on the Somnia Testnet</p>
@@ -134,7 +134,7 @@
         // --- CONSTANTS ---
         const NETWORK_DETAILS = {
             chainName: 'Somnia Testnet',
-            chainId: '0xC3C8', // Updated to 50216 (0xC3C8) to match MetaMask warning
+            chainId: '0xC428', // Updated to 50312 (0xC428)
             rpcUrls: ['https://dream-rpc.somnia.network/'],
             nativeCurrency: { name: 'STT', symbol: 'STT', decimals: 18 },
             blockExplorerUrls: ['https://shannon-explorer.somnia.network/'],
@@ -786,7 +786,7 @@
             showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
             try {
                 const tx = await contract.endGame(ethers.constants.AddressZero, false);
-                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300");
+                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300'); // Fixed missing quote here
                 await tx.wait();
                 showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
                 await getContractGameState();
