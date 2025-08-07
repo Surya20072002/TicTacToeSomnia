@@ -546,7 +546,6 @@
                     signer = provider.getSigner();
                     contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                     statusMessage.textContent = 'Wallet Connected!';
-                    accountInfo.textContent = `Account: ${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)}`;
                     setupEventListeners();
                     updateUI();
                 } catch (error) {
@@ -652,8 +651,14 @@
             }
 
             try {
+                // Fetch and display wallet balance
+                const balanceWei = await provider.getBalance(currentAccount);
+                const balanceEth = ethers.utils.formatEther(balanceWei);
+                accountInfo.textContent = `Account: ${currentAccount.substring(0, 6)}...${currentAccount.substring(currentAccount.length - 4)} | Balance: ${parseFloat(balanceEth).toFixed(4)} STT`;
+
                 const currentGameState = await contract.currentGame();
-                gameId = (await contract.gameId()).toNumber(); // Get the latest gameId from the contract
+                // Get the latest gameId from the contract. Assuming `gameId()` returns the ID of the most recently started game.
+                gameId = (await contract.gameId()).toNumber();
 
                 // Check if there's an active game relevant to the current user
                 if (currentGameState.gameActive || currentGameState.gameConcluded) {
@@ -670,24 +675,12 @@
                         currentPlayerMarker = ''; // Not part of this game
                     }
 
-                    // Fetch the actual board state from the contract
-                    const contractBoard = await provider.call({
-                        to: CONTRACT_ADDRESS,
-                        data: contract.interface.encodeFunctionData("currentGame", [])
-                    });
-                    const decodedBoard = contract.interface.decodeFunctionResult("currentGame", contractBoard);
-                    const boardArray = decodedBoard[7]; // Assuming board is at index 7 based on ABI (playerX, playerO, betAmount, currentTurn, gameActive, gameConcluded, winner, board)
-                    
-                    // The ABI doesn't explicitly show 'board' in `currentGame` output.
-                    // Let's re-examine the ABI and assume `MoveMade` event's `currentBoard` is the way to get it.
-                    // For now, I'll rely on events to update the board.
-                    // If `currentGame` doesn't return the board, we'll need to reconstruct it from `MoveMade` events or add a view function to the contract.
-                    // For this example, I'll assume the `MoveMade` event is the primary source of board updates.
-                    // If the contract's `currentGame` function *does* return the board, this part needs adjustment.
-                    // Based on the provided ABI, `currentGame` returns `playerX, playerO, betAmount, currentTurn, gameActive, gameConcluded, winner`. It *does not* return the board state.
-                    // This means the client-side board must be updated solely by listening to `MoveMade` events.
-                    // For initial load, we'd need to fetch past `MoveMade` events for the current game ID.
-                    // To simplify for this example, the board will only update from live events. A full solution would query historical events.
+                    // IMPORTANT: The `currentGame` view function in the contract ABI does NOT return the board state.
+                    // The client-side board (`board` array) is updated solely by listening to the `MoveMade` event.
+                    // If a user joins a game already in progress, their local board will be empty until the next move.
+                    // For a more robust solution, fetching historical `MoveMade` events for the current `gameId`
+                    // on initial load/updateUI would be necessary, but this adds complexity (e.g., RPC limits, filtering).
+                    // For this mini-game, we rely on live event updates for the board.
 
                     gameActive = currentGameState.gameActive;
                     currentBetAmount = ethers.utils.formatEther(currentGameState.betAmount);
@@ -701,6 +694,7 @@
                         } else {
                             statusMessage.textContent = `Game ${gameId} concluded: ${currentGameState.winner.substring(0, 6)}... won.`;
                         }
+                        // Disable further clicks on the board once game is concluded
                         gameBoardDiv.querySelectorAll('.cell').forEach(cell => cell.removeEventListener('click', handleCellClick));
                     } else if (gameActive) {
                         statusMessage.textContent = `Game ${gameId} Active! Turn: ${currentGameState.currentTurn === 1 ? 'X' : 'O'}`;
@@ -859,7 +853,7 @@
                     updateUI(); // Refresh UI
                 });
 
-                contract.on("MoveMade", (gameIdEvent, player, index, marker, currentBoard, event) => {
+                contract.on("MoveMade", async (gameIdEvent, player, index, marker, currentBoard, event) => { // Added async here
                     console.log("MoveMade Event:", { gameIdEvent: gameIdEvent.toString(), player, index, marker, currentBoard });
                     // Update client-side board based on the event
                     board = currentBoard.map(val => {
@@ -874,13 +868,18 @@
                         gameActive = false;
                         if (winner === 'Draw') {
                             statusMessage.textContent = `Game ${gameIdEvent.toString()}: It's a Draw!`;
-                            concludeGame(ethers.constants.AddressZero, true); // Conclude as draw
+                            await concludeGame(ethers.constants.AddressZero, true); // Conclude as draw
                         } else {
-                            const winnerAddress = (winner === 'X' ? contract.currentGame().then(g => g.playerX) : contract.currentGame().then(g => g.playerO));
-                            winnerAddress.then(addr => {
-                                statusMessage.textContent = `Game ${gameIdEvent.toString()}: ${winner} Wins!`;
-                                concludeGame(addr, false); // Conclude with winner
-                            });
+                            // Fetch current game state to get player addresses
+                            const currentGameState = await contract.currentGame();
+                            let winnerAddress;
+                            if (winner === 'X') {
+                                winnerAddress = currentGameState.playerX;
+                            } else if (winner === 'O') {
+                                winnerAddress = currentGameState.playerO;
+                            }
+                            statusMessage.textContent = `Game ${gameIdEvent.toString()}: ${winner} Wins!`;
+                            await concludeGame(winnerAddress, false); // Conclude with winner
                         }
                         gameBoardDiv.querySelectorAll('.cell').forEach(cell => cell.removeEventListener('click', handleCellClick));
                     } else {
