@@ -374,6 +374,7 @@
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    // Request accounts to connect
                     await provider.send("eth_requestAccounts", []);
                     signer = provider.getSigner();
                     userAddress = await signer.getAddress();
@@ -383,6 +384,8 @@
                     connectWalletButton.style.display = 'none';
                     bettingSection.classList.remove('hidden');
                     console.log("Wallet connected:", userAddress);
+                    // Initial UI update after connecting
+                    updateUI(); 
                 } catch (error) {
                     console.error("User denied account access or another error occurred:", error);
                     statusElement.textContent = "Failed to connect wallet.";
@@ -414,9 +417,10 @@
                     statusElement.textContent = "Game started! Your turn (X).";
                     bettingSection.classList.add('hidden');
                     renderBoard();
+                    updateUI();
                 } catch (error) {
                     console.error("Error starting game:", error);
-                    statusElement.textContent = "Error starting game. Check console for details.";
+                    statusElement.textContent = `Error starting game: ${error.message || "Check console"}`;
                 }
             }
         });
@@ -435,7 +439,9 @@
 
         // Handle cell click
         async function handleCellClick(event) {
-            if (!contract || (await contract.state()) !== 0) {
+            // First, check if the contract is active before making a move
+            const currentState = await contract.state();
+            if (currentState !== 0) {
                 statusElement.textContent = "Game is not active.";
                 return;
             }
@@ -453,9 +459,10 @@
                 const tx = await contract.makeMove(cellIndex);
                 await tx.wait();
                 statusElement.textContent = "Move successful. Waiting for AI's move.";
+                updateUI();
             } catch (error) {
                 console.error("Error making move:", error);
-                statusElement.textContent = "Error making move. Check console for details.";
+                statusElement.textContent = `Error making move: ${error.message || "Check console"}`;
             }
         }
 
@@ -529,8 +536,23 @@
                 console.log("GameEnded event received:", winner, state);
                 updateUI();
             });
-        }
 
+            // Initial check to see if a game is already in progress
+            window.onload = async () => {
+                try {
+                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const contractReadOnly = new ethers.Contract(contractAddress, contractABI, provider);
+                    const currentState = await contractReadOnly.state();
+                    if (currentState === 0) {
+                        statusElement.textContent = "Game is in progress. Connect wallet to join.";
+                        renderBoard();
+                        updateUI();
+                    }
+                } catch (e) {
+                    // Ignore errors if the wallet isn't connected yet
+                }
+            };
+        }
     </script>
 </body>
 </html>
