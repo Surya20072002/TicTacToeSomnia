@@ -1,4 +1,119 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOmnia Tic-Tac-Toe DApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #d1d5db;
+        }
+        .tic-tac-toe-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 8px;
+        }
+        .cell {
+            background-color: #1f2937;
+            border: 2px solid #4b5563;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .cell:hover {
+            background-color: #374151;
+        }
+        .cell.x {
+            color: #ef4444; /* Red for X */
+        }
+        .cell.o {
+            color: #22c55e; /* Green for O */
+        }
+        .button-primary {
+            background-color: #3b82f6;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .button-primary:hover {
+            background-color: #60a5fa;
+        }
+        .connect-button {
+            background-color: #3b82f6;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .connect-button:hover {
+            background-color: #60a5fa;
+        }
+        .switch-button {
+            background-color: #f59e0b;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .switch-button:hover {
+            background-color: #fbbf24;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full space-y-6 text-center border-2 border-gray-700">
+        <h1 class="text-4xl font-bold text-gray-50">SOmnia Tic-Tac-Toe</h1>
+        <p class="text-gray-400">Play an on-chain game of Tic-Tac-Toe against the contract's AI.</p>
+
+        <div class="space-y-2">
+            <button id="connect-button" class="connect-button text-white font-bold py-3 px-6 rounded-xl w-full">
+                Connect Wallet
+            </button>
+            <div id="wallet-info" class="text-sm text-gray-400 break-words hidden">
+                <p>Address: <span id="wallet-address" class="text-gray-200"></span></p>
+                <p>Balance: <span id="wallet-balance" class="text-green-400"></span> STT</p>
+            </div>
+            <button id="switch-network-button" class="switch-button text-white font-bold py-3 px-6 rounded-xl w-full hidden">
+                Switch to Somnia Testnet
+            </button>
+        </div>
+
+        <div id="game-container" class="flex flex-col items-center space-y-6">
+            <div id="game-board" class="tic-tac-toe-grid">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+
+            <div id="status-message" class="h-10 text-xl font-semibold">
+                &nbsp; </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center justify-center space-x-2">
+                    <input type="number" id="bet-amount" class="w-24 text-center bg-gray-700 text-gray-100 rounded-xl p-2" placeholder="Bet" min="0.001" step="0.001">
+                    <span class="text-gray-400">STT</span>
+                </div>
+                <button id="start-game-button" class="button-primary text-white font-bold py-3 px-6 rounded-xl w-full">
+                    Start New Game
+                </button>
+                <button id="reset-game-button" class="button-primary text-white font-bold py-3 px-6 rounded-xl w-full hidden">
+                    Reset Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
         // --- Network and DApp Configuration ---
         const somniaNetwork = {
             chainId: '0xC488', // 50312 in hex
@@ -8,10 +123,9 @@
             blockExplorerUrls: ['https://shannon-explorer.somnia.network/']
         };
 
-        // --- Contract Details (Make sure these match your deployed contract) ---
+        // --- Contract Details ---
         const CONTRACT_ADDRESS = "0xa64DB90b1F1CF2D39ce14b7d8Af2690640dDED0d";
         const CONTRACT_ABI = [
-            // Your ABI here
             {
                 "inputs": [],
                 "stateMutability": "nonpayable",
@@ -205,24 +319,75 @@
             }
         ];
 
-        // --- DOM Elements and Global State ---
-        const statusElement = document.getElementById("status");
-        const connectWalletButton = document.getElementById("connect-wallet-button");
-        const bettingSection = document.getElementById("betting-section");
-        const startButton = document.getElementById("start-game-button");
-        const betButtons = document.querySelectorAll(".bet-button");
-        const boardElement = document.getElementById("game-board");
-        const messageBox = document.getElementById("message-box");
+        // --- DOM Elements ---
+        const connectButton = document.getElementById('connect-button');
+        const walletInfo = document.getElementById('wallet-info');
+        const walletAddressSpan = document.getElementById('wallet-address');
+        const walletBalanceSpan = document.getElementById('wallet-balance');
+        const switchNetworkButton = document.getElementById('switch-network-button');
+        
+        const gameBoard = document.getElementById('game-board');
+        const cells = document.querySelectorAll('.cell');
+        const statusMessage = document.getElementById('status-message');
+        const betAmountInput = document.getElementById('bet-amount');
+        const startGameButton = document.getElementById('start-game-button');
+        const resetGameButton = document.getElementById('reset-game-button');
 
-        let signer;
-        let contract;
-        let selectedBetAmount = 0;
-        let userAddress;
+        // --- Global State ---
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
         let isWalletConnected = false;
+        let tictactoeContract = null;
+        let isProcessing = false;
 
         // --- Wallet Connection and Network Handling ---
+        const enableGameControls = (enabled) => {
+            cells.forEach(cell => {
+                if (enabled) {
+                    cell.style.pointerEvents = 'auto';
+                } else {
+                    cell.style.pointerEvents = 'none';
+                }
+            });
+            startGameButton.disabled = !enabled;
+            betAmountInput.disabled = !enabled;
+        };
+
+        const updateWalletUI = () => {
+            if (isWalletConnected) {
+                connectButton.textContent = 'Disconnect Wallet';
+                connectButton.classList.remove('hidden');
+                switchNetworkButton.classList.add('hidden');
+                walletInfo.classList.remove('hidden');
+                walletAddressSpan.textContent = userAddress;
+                // Game controls enabled only on the correct network
+                enableGameControls(true);
+            } else {
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.classList.remove('hidden');
+                switchNetworkButton.classList.add('hidden');
+                walletInfo.classList.add('hidden');
+                walletAddressSpan.textContent = '';
+                walletBalanceSpan.textContent = '';
+                enableGameControls(false);
+            }
+        };
+
+        const updateBalance = async () => {
+            if (provider && userAddress) {
+                try {
+                    const balance = await provider.getBalance(userAddress);
+                    const formattedBalance = ethers.utils.formatEther(balance);
+                    walletBalanceSpan.textContent = parseFloat(formattedBalance).toFixed(4);
+                } catch (error) {
+                    console.error("Failed to fetch balance:", error);
+                }
+            }
+        };
+        
         const switchNetwork = async () => {
-             if (window.ethereum) {
+            if (window.ethereum) {
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
@@ -243,11 +408,9 @@
                             });
                         } catch (addError) {
                             console.error("Failed to add network:", addError);
-                            messageBox.textContent = "Failed to add network to MetaMask.";
                         }
                     } else {
                         console.error("Failed to switch network:", switchError);
-                        messageBox.textContent = "Failed to switch network.";
                     }
                 }
             }
@@ -256,225 +419,243 @@
         const connectWallet = async () => {
             if (window.ethereum) {
                 try {
-                    messageBox.textContent = "Connecting...";
-                    messageBox.classList.remove('hidden');
-
+                    statusMessage.textContent = 'Connecting...';
+                    statusMessage.className = 'text-yellow-400 h-10 text-xl font-semibold';
+                    
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     userAddress = accounts[0];
                     isWalletConnected = true;
 
-                    const provider = new ethers.providers.Web3Provider(window.ethereum);
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
                     const { chainId } = await provider.getNetwork();
                     
                     if (chainId === parseInt(somniaNetwork.chainId)) {
                         signer = provider.getSigner();
-                        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                        
-                        connectWalletButton.classList.add('hidden');
-                        bettingSection.classList.remove('hidden');
-                        messageBox.textContent = `Wallet connected: ${userAddress.substring(0, 6)}...`;
-                        console.log("Wallet connected:", userAddress);
-                        updateUI();
+                        tictactoeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                        updateWalletUI();
+                        updateBalance();
+                        statusMessage.textContent = "Wallet connected! Game is ready.";
+                        statusMessage.className = 'text-green-400 h-10 text-xl font-semibold';
+                        enableGameControls(true);
+                        checkGameState();
                     } else {
                         isWalletConnected = false;
-                        connectWalletButton.textContent = "Switch Network";
-                        connectWalletButton.classList.remove('hidden');
-                        bettingSection.classList.add('hidden');
-                        messageBox.textContent = "Wrong network. Please switch to Somnia Testnet.";
-                        connectWalletButton.removeEventListener('click', connectWallet);
-                        connectWalletButton.addEventListener('click', switchNetwork);
+                        updateWalletUI();
+                        statusMessage.textContent = "Wrong network. Please switch to Somnia Testnet.";
+                        statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+                        connectButton.classList.add('hidden');
+                        switchNetworkButton.classList.remove('hidden');
+                        enableGameControls(false);
                     }
                 } catch (error) {
                     console.error("Connection failed:", error);
-                    messageBox.textContent = "Connection to wallet failed.";
+                    statusMessage.textContent = "Connection to wallet failed. Please try again.";
+                    statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+                    disconnectWallet();
                 }
             } else {
-                messageBox.textContent = "MetaMask or another wallet is not installed. Please install one.";
-                connectWalletButton.classList.add('hidden');
+                statusMessage.textContent = "MetaMask or another wallet is not installed. Please install one to play.";
+                statusMessage.className = 'text-yellow-400 h-10 text-xl font-semibold';
             }
         };
 
         const disconnectWallet = () => {
             userAddress = null;
             isWalletConnected = false;
+            provider = null;
             signer = null;
-            contract = null;
-            connectWalletButton.textContent = "Connect Wallet";
-            connectWalletButton.classList.remove('hidden');
-            bettingSection.classList.add('hidden');
-            messageBox.textContent = "Wallet disconnected.";
-            connectWalletButton.removeEventListener('click', switchNetwork);
-            connectWalletButton.addEventListener('click', connectWallet);
+            tictactoeContract = null;
+            updateWalletUI();
+            statusMessage.textContent = "Wallet disconnected.";
+            statusMessage.className = 'text-gray-400 h-10 text-xl font-semibold';
+            switchNetworkButton.classList.add('hidden');
+            connectButton.classList.remove('hidden');
+            enableGameControls(false);
         };
-        
-        // --- Game Logic ---
 
-        // Renders the game board
-        function renderBoard() {
-            boardElement.innerHTML = '';
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement("div");
-                cell.classList.add("cell");
-                cell.dataset.index = i;
-                cell.addEventListener("click", handleCellClick);
-                boardElement.appendChild(cell);
-            }
-        }
-
-        // Handles a player's move
-        async function handleCellClick(event) {
-            if (!contract || !isWalletConnected) {
-                messageBox.textContent = "Please connect your wallet first.";
-                return;
-            }
-
-            const currentState = await contract.state();
-            if (currentState !== 0) {
-                messageBox.textContent = "Game is not active.";
-                return;
-            }
-
-            const cellIndex = parseInt(event.target.dataset.index);
-            const currentBoard = await getBoardState();
-            
-            if (currentBoard[cellIndex] !== 0) {
-                messageBox.textContent = "This spot is already taken!";
-                return;
-            }
-
-            messageBox.textContent = "Making your move... Please confirm transaction.";
-            try {
-                const tx = await contract.makeMove(cellIndex);
-                await tx.wait();
-                messageBox.textContent = "Move successful. Waiting for AI's move.";
-                updateUI();
-            } catch (error) {
-                console.error("Error making move:", error);
-                messageBox.textContent = `Error making move: ${error.message || "Check console"}`;
-            }
-        }
-
-        // Fetches the current board state from the contract
-        async function getBoardState() {
-            const board = [];
-            for (let i = 0; i < 9; i++) {
-                const cellValue = await contract.board(i);
-                board.push(cellValue.toNumber());
-            }
-            return board;
-        }
-
-        // Updates the UI based on the game's state
-        async function updateUI() {
-            if (!contract) return;
-            
-            const currentState = await contract.state();
-            const currentBoard = await getBoardState();
-            
-            const cells = document.querySelectorAll('.cell');
-            if (cells.length === 0) renderBoard();
-            
-            cells.forEach((cell, index) => {
-                const value = currentBoard[index];
-                cell.dataset.player = value;
-                cell.textContent = value === 1 ? 'X' : value === 2 ? 'O' : '';
-            });
-
-            if (currentState === 0) {
-                const playerXAddress = await contract.playerX();
-                const currentTurn = await contract.turn();
-                
-                if (currentTurn === 1) {
-                    statusElement.textContent = userAddress && userAddress.toLowerCase() === playerXAddress.toLowerCase() ? "Your turn (X)." : "Waiting for Player X's move.";
-                } else {
-                    statusElement.textContent = "AI is thinking...";
-                }
+        connectButton.addEventListener('click', () => {
+            if (isWalletConnected) {
+                disconnectWallet();
             } else {
-                const winnerAddress = await contract.winner();
-                if (currentState === 1) {
-                    statusElement.textContent = winnerAddress && winnerAddress.toLowerCase() === userAddress.toLowerCase() ? "You won! 🎉" : "Player X won!";
-                } else if (currentState === 2) {
-                    statusElement.textContent = "AI won. Better luck next time!";
-                } else if (currentState === 3) {
-                    statusElement.textContent = "It's a draw! 🤝";
-                }
-                setTimeout(() => {
-                    bettingSection.classList.remove('hidden');
-                    startButton.disabled = true;
-                    selectedBetAmount = 0;
-                    document.querySelector('.bet-button.selected')?.classList.remove('selected');
-                    boardElement.innerHTML = '';
-                    statusElement.textContent = "Game Over. Start a new one!";
-                }, 5000);
-            }
-        }
-        
-        // --- Event Listeners and Initial Setup ---
-        
-        // Event listener for connect wallet button
-        connectWalletButton.addEventListener("click", connectWallet);
-
-        // Event listener for bet buttons
-        betButtons.forEach(button => {
-            button.addEventListener("click", () => {
-                betButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
-                selectedBetAmount = parseFloat(button.dataset.value);
-                startButton.disabled = false;
-            });
-        });
-
-        // Event listener for start game button
-        startButton.addEventListener("click", async () => {
-            if (selectedBetAmount > 0 && contract) {
-                try {
-                    const betInWei = ethers.utils.parseEther(selectedBetAmount.toString());
-                    messageBox.textContent = "Starting game... Please confirm transaction.";
-                    const tx = await contract.startGame(betInWei, { value: betInWei });
-                    await tx.wait();
-                    messageBox.textContent = "Game started! Your turn (X).";
-                    bettingSection.classList.add('hidden');
-                    updateUI();
-                } catch (error) {
-                    console.error("Error starting game:", error);
-                    messageBox.textContent = `Error starting game: ${error.message || "Check console"}`;
-                }
+                connectWallet();
             }
         });
 
-        // Event listeners for wallet provider events
+        switchNetworkButton.addEventListener('click', switchNetwork);
+
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', (accounts) => {
                 if (accounts.length > 0) {
                     userAddress = accounts[0];
-                    connectWallet();
+                    updateWalletUI();
+                    updateBalance();
+                    checkGameState();
                 } else {
                     disconnectWallet();
                 }
             });
             window.ethereum.on('chainChanged', () => {
-                location.reload();
+                window.location.reload();
             });
-
-            // Watch for contract events
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const contractWithProvider = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-
-            contractWithProvider.on("GameStarted", () => updateUI());
-            contractWithProvider.on("MoveMade", () => updateUI());
-            contractWithProvider.on("GameEnded", () => updateUI());
         }
 
-        // Initial check on page load
-        window.onload = () => {
-            setTimeout(() => {
-                if (window.ethereum) {
-                    connectWallet();
-                } else {
-                    statusElement.textContent = "MetaMask not found. Please install it.";
-                    connectWalletButton.classList.remove('hidden');
+        // --- Game Logic with Smart Contract Interaction ---
+        const checkGameState = async () => {
+            if (!tictactoeContract) return;
+
+            try {
+                const [playerXAddress, gameState, boardState] = await Promise.all([
+                    tictactoeContract.playerX(),
+                    tictactoeContract.state(),
+                    tictactoeContract.board()
+                ]);
+
+                // Update the UI based on the current on-chain state
+                if (gameState === 0) { // GameState.Ongoing
+                    renderBoard(boardState);
+                    startGameButton.classList.add('hidden');
+                    resetGameButton.classList.remove('hidden');
+                    enableGameControls(true);
+                    statusMessage.textContent = playerXAddress.toLowerCase() === userAddress.toLowerCase() ? "It's your turn (X)!" : "Waiting for player's move...";
+                    statusMessage.className = playerXAddress.toLowerCase() === userAddress.toLowerCase() ? 'text-green-400 h-10 text-xl font-semibold' : 'text-yellow-400 h-10 text-xl font-semibold';
+                } else if (gameState === 1) { // GameState.Win
+                    const winner = await tictactoeContract.winner();
+                    renderBoard(boardState);
+                    startGameButton.classList.remove('hidden');
+                    resetGameButton.classList.add('hidden');
+                    enableGameControls(false);
+                    if (winner.toLowerCase() === userAddress.toLowerCase()) {
+                        statusMessage.textContent = '🎉 You won! Your winnings will be transferred.';
+                        statusMessage.className = 'text-green-400 h-10 text-xl font-semibold';
+                    } else {
+                        statusMessage.textContent = '😢 The AI won.';
+                        statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+                    }
+                } else if (gameState === 2) { // GameState.Tie
+                    renderBoard(boardState);
+                    startGameButton.classList.remove('hidden');
+                    resetGameButton.classList.add('hidden');
+                    enableGameControls(false);
+                    statusMessage.textContent = '🤝 It\'s a tie!';
+                    statusMessage.className = 'text-yellow-400 h-10 text-xl font-semibold';
+                } else { // GameState.NotStarted
+                    renderBoard(boardState);
+                    startGameButton.classList.remove('hidden');
+                    resetGameButton.classList.add('hidden');
+                    enableGameControls(true);
+                    statusMessage.textContent = 'Enter a bet and start a new game!';
+                    statusMessage.className = 'text-gray-400 h-10 text-xl font-semibold';
                 }
-            }, 500); // Add a 500ms delay to give MetaMask time to load
+            } catch (error) {
+                console.error("Failed to fetch game state:", error);
+                statusMessage.textContent = "Error fetching game state. Check console for details.";
+                statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+            }
+        };
+
+        const renderBoard = (boardState) => {
+            cells.forEach((cell, index) => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o');
+                const mark = boardState[index];
+                if (mark === 1) { // Mark.X
+                    cell.textContent = 'X';
+                    cell.classList.add('x');
+                } else if (mark === 2) { // Mark.O
+                    cell.textContent = 'O';
+                    cell.classList.add('o');
+                }
+            });
+        };
+        
+        const handleStartGame = async () => {
+            if (!isWalletConnected) {
+                statusMessage.textContent = 'Please connect your wallet first.';
+                statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+                return;
+            }
+
+            if (isProcessing) return;
+
+            const betAmount = betAmountInput.value;
+            if (!betAmount || parseFloat(betAmount) <= 0) {
+                statusMessage.textContent = "Please enter a valid bet amount.";
+                statusMessage.className = 'text-yellow-400 h-10 text-xl font-semibold';
+                return;
+            }
+
+            isProcessing = true;
+            enableGameControls(false);
+            statusMessage.textContent = 'Starting new game... Confirm transaction in your wallet.';
+            statusMessage.className = 'text-yellow-400 h-10 text-xl font-semibold';
+
+            try {
+                const betAmountWei = ethers.utils.parseEther(betAmount);
+                const tx = await tictactoeContract.startGame(betAmountWei, { value: betAmountWei });
+                statusMessage.textContent = 'Transaction sent. Waiting for confirmation...';
+                await tx.wait();
+                statusMessage.textContent = 'Game started! It\'s your turn (X).';
+                statusMessage.className = 'text-green-400 h-10 text-xl font-semibold';
+                checkGameState();
+            } catch (error) {
+                console.error("Transaction failed:", error);
+                statusMessage.textContent = 'Failed to start game. Check console for details.';
+                statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+            } finally {
+                isProcessing = false;
+                enableGameControls(true);
+            }
+        };
+
+        const handleMakeMove = async (index) => {
+            if (!isWalletConnected || isProcessing) return;
+
+            isProcessing = true;
+            enableGameControls(false);
+            statusMessage.textContent = 'Making your move... Confirm transaction in your wallet.';
+            statusMessage.className = 'text-yellow-400 h-10 text-xl font-semibold';
+
+            try {
+                const tx = await tictactoeContract.makeMove(index);
+                statusMessage.textContent = 'Transaction sent. Waiting for confirmation...';
+                await tx.wait();
+                statusMessage.textContent = "Move successful! Waiting for AI's move...";
+                statusMessage.className = 'text-green-400 h-10 text-xl font-semibold';
+                checkGameState();
+                updateBalance();
+            } catch (error) {
+                console.error("Transaction failed:", error);
+                statusMessage.textContent = 'Failed to make move. Check console for details.';
+                statusMessage.className = 'text-red-400 h-10 text-xl font-semibold';
+            } finally {
+                isProcessing = false;
+                // We'll re-enable controls based on the new game state after the AI move.
+            }
+        };
+        
+        // --- Event Listeners ---
+        gameBoard.addEventListener('click', (event) => {
+            if (isWalletConnected && !isProcessing) {
+                const clickedCell = event.target;
+                if (clickedCell.classList.contains('cell')) {
+                    const clickedCellIndex = parseInt(clickedCell.getAttribute('data-index'));
+                    handleMakeMove(clickedCellIndex);
+                }
+            }
+        });
+
+        startGameButton.addEventListener('click', handleStartGame);
+        resetGameButton.addEventListener('click', async () => {
+            // This button is for a soft reset if the on-chain state is stuck.
+            // In a real scenario, this would likely be an admin function or a more complex state check.
+            // For this example, we'll just check the state again.
+            checkGameState();
+        });
+
+        // --- Initial State on Load ---
+        window.onload = () => {
+            updateWalletUI();
+            checkGameState();
         };
     </script>
 </body>
