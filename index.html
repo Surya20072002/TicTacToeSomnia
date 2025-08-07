@@ -687,6 +687,8 @@
                 connectButton.textContent = 'Wallet Not Found';
                 connectButton.disabled = true;
                 connectButton.classList.add('opacity-50', 'cursor-not-allowed');
+                startGameBtn.disabled = true; // Ensure game start is disabled
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 return;
             }
 
