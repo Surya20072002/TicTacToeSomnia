@@ -261,12 +261,12 @@
         const resetGameBtn = document.getElementById('reset-game-btn');
         
         // --- Core Functions ---
-
         async function connectWallet() {
             if (typeof window.ethereum !== 'undefined') {
                 try {
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    
+                    const requestedAccounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    accounts = requestedAccounts[0];
+
                     const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
                     if (currentChainId !== somniaChainId) {
                         try {
@@ -287,7 +287,7 @@
                                             symbol: 'STT',
                                             decimals: 18
                                         },
-                                        blockExplorerUrls: ['https://explorer.somnia.network/']
+                                        blockExplorerUrls: ['https://shannon-explorer.somnia.network/']
                                     }]
                                 });
                             }
@@ -299,14 +299,14 @@
 
                     provider = new ethers.providers.Web3Provider(window.ethereum);
                     signer = provider.getSigner();
-                    accounts = await signer.getAddress();
                     
                     walletAddressElem.textContent = `Wallet: ${accounts.substring(0, 6)}...${accounts.substring(38)}`;
                     connectWalletBtn.textContent = 'Connected';
                     connectWalletBtn.disabled = true;
 
                     contract = new ethers.Contract(contractAddress, contractAbi, signer);
-                    pollGameState();
+                    setupEventListeners();
+                    updateGameState();
                 } catch (error) {
                     console.error("User rejected request or other error:", error);
                     gameStatusElem.textContent = "Connection failed. Please try again.";
@@ -316,13 +316,44 @@
             }
         }
 
+        function setupEventListeners() {
+            contract.on('GameStarted', (player1, player2) => {
+                console.log(`Game started between ${player1} and ${player2}`);
+                updateGameState();
+            });
+
+            contract.on('MoveMade', (player, row, col) => {
+                console.log(`${player} made a move at row ${row}, col ${col}`);
+                updateGameState();
+            });
+
+            contract.on('GameEnded', (winner) => {
+                console.log(`Game ended. Winner is ${winner}`);
+                updateGameState();
+            });
+
+            // Listen for account changes
+            if (window.ethereum) {
+                window.ethereum.on('accountsChanged', (newAccounts) => {
+                    if (newAccounts.length === 0) {
+                        window.location.reload();
+                    } else {
+                        accounts = newAccounts[0];
+                        walletAddressElem.textContent = `Wallet: ${accounts.substring(0, 6)}...${accounts.substring(38)}`;
+                        signer = provider.getSigner();
+                        contract = new ethers.Contract(contractAddress, contractAbi, signer);
+                        updateGameState();
+                    }
+                });
+            }
+        }
+
         async function joinGame() {
             try {
                 const tx = await contract.joinGame();
                 gameStatusElem.textContent = "Joining game...";
                 await tx.wait();
-                gameStatusElem.textContent = "Joined! Game in progress.";
-                pollGameState();
+                gameStatusElem.textContent = "Joined! Waiting for opponent's turn...";
             } catch (error) {
                 console.error("Error joining game:", error);
                 gameStatusElem.textContent = "Failed to join. Is a player already connected?";
@@ -336,10 +367,9 @@
                 gameStatusElem.textContent = "Submitting your move...";
                 await tx.wait();
                 gameStatusElem.textContent = "Move successful! Waiting for opponent...";
-                pollGameState();
             } catch (error) {
                 console.error("Error making move:", error);
-                gameStatusElem.textContent = "Failed to make move. Is it your turn?";
+                gameStatusElem.textContent = "Failed to make move. Is it your turn or is the cell already taken?";
             }
         }
 
@@ -349,62 +379,70 @@
                 gameStatusElem.textContent = "Resetting game...";
                 await tx.wait();
                 gameStatusElem.textContent = "Game reset! A new round begins.";
-                pollGameState();
             } catch (error) {
                 console.error("Error resetting game:", error);
                 gameStatusElem.textContent = "Failed to reset. Only players can reset a finished game.";
             }
         }
 
-        async function pollGameState() {
+        async function updateGameState() {
             if (!contract) return;
 
-            const [p1, p2, cPlayer, gState] = await Promise.all([
-                contract.player1(),
-                contract.player2(),
-                contract.currentPlayer(),
-                contract.gameState()
-            ]);
+            try {
+                const [p1, p2, cPlayer, gState] = await Promise.all([
+                    contract.player1(),
+                    contract.player2(),
+                    contract.currentPlayer(),
+                    contract.gameState()
+                ]);
 
-            // Update UI based on game state
-            joinGameBtn.style.display = 'none';
-            resetGameBtn.style.display = 'none';
+                // Update UI based on game state
+                joinGameBtn.style.display = 'none';
+                resetGameBtn.style.display = 'none';
 
-            if (gState == 0) { // WaitingForPlayer
-                gameStatusElem.textContent = "Waiting for a second player to join...";
-                if (accounts && accounts.toLowerCase() !== p1.toLowerCase()) {
-                    joinGameBtn.style.display = 'inline-block';
+                if (gState == 0) { // WaitingForPlayer
+                    gameStatusElem.textContent = "Waiting for a second player to join...";
+                    if (accounts && accounts.toLowerCase() !== p1.toLowerCase() && p2 === "0x0000000000000000000000000000000000000000") {
+                        joinGameBtn.style.display = 'inline-block';
+                    }
+                } else if (gState == 1) { // InProgress
+                    const isMyTurn = accounts && accounts.toLowerCase() === cPlayer.toLowerCase();
+                    gameStatusElem.textContent = isMyTurn ? "Your turn!" : "Opponent's turn...";
+                } else if (gState == 2) { // Player1Won
+                    gameStatusElem.textContent = `Player 1 (${p1.substring(0, 6)}...) wins!`;
+                    resetGameBtn.style.display = 'inline-block';
+                } else if (gState == 3) { // Player2Won
+                    gameStatusElem.textContent = `Player 2 (${p2.substring(0, 6)}...) wins!`;
+                    resetGameBtn.style.display = 'inline-block';
+                } else if (gState == 4) { // Draw
+                    gameStatusElem.textContent = "It's a draw!";
+                    resetGameBtn.style.display = 'inline-block';
                 }
-            } else if (gState == 1) { // InProgress
-                const isMyTurn = accounts && accounts.toLowerCase() === cPlayer.toLowerCase();
-                gameStatusElem.textContent = isMyTurn ? "Your turn!" : "Opponent's turn...";
-            } else if (gState == 2) { // Player1Won
-                gameStatusElem.textContent = `Player 1 (${p1.substring(0, 6)}...) wins!`;
-                resetGameBtn.style.display = 'inline-block';
-            } else if (gState == 3) { // Player2Won
-                gameStatusElem.textContent = `Player 2 (${p2.substring(0, 6)}...) wins!`;
-                resetGameBtn.style.display = 'inline-block';
-            } else if (gState == 4) { // Draw
-                gameStatusElem.textContent = "It's a draw!";
-                resetGameBtn.style.display = 'inline-block';
-            }
 
-            // Update the board
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    const cell = document.querySelector(`[data-row="${i}"][data-col="${j}"]`);
-                    const squareState = await contract.board(i, j);
-                    cell.textContent = '';
-                    if (squareState == 1) { // Player1
-                        cell.textContent = 'X';
-                        cell.className = 'board-cell x-mark';
-                    } else if (squareState == 2) { // Player2
-                        cell.textContent = 'O';
-                        cell.className = 'board-cell o-mark';
-                    } else {
-                        cell.className = 'board-cell';
+                // Update the board
+                const boardReads = [];
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        boardReads.push(contract.board(i, j));
                     }
                 }
+                const boardStates = await Promise.all(boardReads);
+
+                boardCells.forEach((cell, index) => {
+                    const squareState = boardStates[index];
+                    cell.textContent = '';
+                    cell.className = 'board-cell'; // Reset class
+                    if (squareState == 1) { // Player1
+                        cell.textContent = 'X';
+                        cell.classList.add('x-mark');
+                    } else if (squareState == 2) { // Player2
+                        cell.textContent = 'O';
+                        cell.classList.add('o-mark');
+                    }
+                });
+            } catch (error) {
+                console.error("Error updating game state:", error);
+                gameStatusElem.textContent = "Error fetching game state. Please check your connection.";
             }
         }
 
@@ -424,14 +462,6 @@
                 }
             });
         });
-        
-        // Initial state update
-        window.onload = connectWallet;
-
-        // Polling for game state updates
-        setInterval(pollGameState, 3000);
     </script>
 </body>
 </html>
-
-
