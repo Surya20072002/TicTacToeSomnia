@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOmnia Tic-Tac-Toe DApp</title>
+    <!-- Tailwind CSS via CDN for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font from Google Fonts -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+    <!-- Ethers.js library for blockchain interaction -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         body {
@@ -61,14 +64,24 @@
         .switch-button:hover {
             background-color: #fbbf24;
         }
+        .bet-button {
+            background-color: #4a5568;
+            color: #d1d5db;
+            transition: all 0.2s ease-in-out;
+        }
+        .bet-button:hover {
+            background-color: #64748b;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
 
+    <!-- Main game container -->
     <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full space-y-6 text-center border-2 border-gray-700">
         <h1 class="text-4xl font-bold text-gray-50">SOmnia Tic-Tac-Toe</h1>
         <p class="text-gray-400">Play an on-chain game of Tic-Tac-Toe against the contract's AI.</p>
 
+        <!-- Wallet connection status -->
         <div class="space-y-2">
             <button id="connect-button" class="connect-button text-white font-bold py-3 px-6 rounded-xl w-full">
                 Connect Wallet
@@ -77,12 +90,14 @@
                 <p>Address: <span id="wallet-address" class="text-gray-200"></span></p>
                 <p>Balance: <span id="wallet-balance" class="text-green-400"></span> STT</p>
             </div>
+            <!-- Switch Network button -->
             <button id="switch-network-button" class="switch-button text-white font-bold py-3 px-6 rounded-xl w-full hidden">
                 Switch to Somnia Testnet
             </button>
         </div>
 
         <div id="game-container" class="flex flex-col items-center space-y-6">
+            <!-- Game board -->
             <div id="game-board" class="tic-tac-toe-grid">
                 <div class="cell" data-index="0"></div>
                 <div class="cell" data-index="1"></div>
@@ -95,13 +110,22 @@
                 <div class="cell" data-index="8"></div>
             </div>
 
+            <!-- Game status message -->
             <div id="status-message" class="h-10 text-xl font-semibold">
-                &nbsp; </div>
+                &nbsp; <!-- Non-breaking space to maintain height -->
+            </div>
 
             <div class="space-y-2">
                 <div class="flex items-center justify-center space-x-2">
                     <input type="number" id="bet-amount" class="w-24 text-center bg-gray-700 text-gray-100 rounded-xl p-2" placeholder="Bet" min="0.001" step="0.001">
                     <span class="text-gray-400">STT</span>
+                </div>
+                <!-- Quick bet buttons -->
+                <div id="quick-bets" class="flex flex-wrap justify-center gap-2">
+                    <button class="bet-button px-4 py-2 rounded-xl text-sm" data-value="0.01">0.01</button>
+                    <button class="bet-button px-4 py-2 rounded-xl text-sm" data-value="0.05">0.05</button>
+                    <button class="bet-button px-4 py-2 rounded-xl text-sm" data-value="0.1">0.1</button>
+                    <button class="bet-button px-4 py-2 rounded-xl text-sm" data-value="1">1</button>
                 </div>
                 <button id="start-game-button" class="button-primary text-white font-bold py-3 px-6 rounded-xl w-full">
                     Start New Game
@@ -330,6 +354,7 @@
         const cells = document.querySelectorAll('.cell');
         const statusMessage = document.getElementById('status-message');
         const betAmountInput = document.getElementById('bet-amount');
+        const quickBetButtons = document.querySelectorAll('#quick-bets button'); // New: Select quick bet buttons
         const startGameButton = document.getElementById('start-game-button');
         const resetGameButton = document.getElementById('reset-game-button');
 
@@ -352,6 +377,7 @@
             });
             startGameButton.disabled = !enabled;
             betAmountInput.disabled = !enabled;
+            quickBetButtons.forEach(button => button.disabled = !enabled); // New: Enable/disable quick bet buttons
         };
 
         const updateWalletUI = () => {
@@ -650,6 +676,13 @@
             // In a real scenario, this would likely be an admin function or a more complex state check.
             // For this example, we'll just check the state again.
             checkGameState();
+        });
+
+        // New: Event listeners for quick bet buttons
+        quickBetButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                betAmountInput.value = button.getAttribute('data-value');
+            });
         });
 
         // --- Initial State on Load ---
