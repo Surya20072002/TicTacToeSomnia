@@ -369,12 +369,11 @@
         const startButton = document.getElementById("start-game-button");
         const betButtons = document.querySelectorAll(".bet-button");
 
-        // Event listener for connecting wallet
-        connectWalletButton.addEventListener("click", async () => {
+        // Function to connect the wallet and initialize the dApp
+        async function connectWallet() {
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     const provider = new ethers.providers.Web3Provider(window.ethereum);
-                    // Request accounts to connect
                     await provider.send("eth_requestAccounts", []);
                     signer = provider.getSigner();
                     userAddress = await signer.getAddress();
@@ -384,8 +383,24 @@
                     connectWalletButton.style.display = 'none';
                     bettingSection.classList.remove('hidden');
                     console.log("Wallet connected:", userAddress);
+                    
                     // Initial UI update after connecting
                     updateUI(); 
+                    
+                    // Listen for changes in the wallet's account or network
+                    window.ethereum.on('accountsChanged', (accounts) => {
+                        if (accounts.length === 0) {
+                            location.reload();
+                        } else {
+                            userAddress = accounts[0];
+                            updateUI();
+                        }
+                    });
+
+                    window.ethereum.on('chainChanged', () => {
+                        location.reload();
+                    });
+
                 } catch (error) {
                     console.error("User denied account access or another error occurred:", error);
                     statusElement.textContent = "Failed to connect wallet.";
@@ -393,7 +408,10 @@
             } else {
                 statusElement.textContent = "Please install MetaMask!";
             }
-        });
+        }
+
+        // Event listener for connecting wallet
+        connectWalletButton.addEventListener("click", connectWallet);
 
         // Event listeners for bet buttons
         betButtons.forEach(button => {
@@ -439,7 +457,7 @@
 
         // Handle cell click
         async function handleCellClick(event) {
-            // First, check if the contract is active before making a move
+            // Check if the contract is active before making a move
             const currentState = await contract.state();
             if (currentState !== 0) {
                 statusElement.textContent = "Game is not active.";
@@ -482,9 +500,7 @@
 
             const currentState = await contract.state();
             const currentBoard = await getBoardState();
-            const playerXAddress = await contract.playerX();
-            const currentTurn = await contract.turn();
-
+            
             const cells = document.querySelectorAll('.cell');
             cells.forEach((cell, index) => {
                 const value = currentBoard[index];
@@ -494,6 +510,10 @@
 
             // Update status based on game state
             if (currentState === 0) { // Ongoing
+                renderBoard(); // Make sure the board is rendered if a game is ongoing
+                const playerXAddress = await contract.playerX();
+                const currentTurn = await contract.turn();
+                
                 if (currentTurn === 1) {
                     statusElement.textContent = userAddress === playerXAddress ? "Your turn (X)." : "Waiting for player X's move.";
                 } else {
@@ -513,6 +533,8 @@
                     startButton.disabled = true;
                     selectedBetAmount = 0;
                     document.querySelector('.bet-button.selected')?.classList.remove('selected');
+                    boardElement.innerHTML = ''; // Clear the board after the game ends
+                    statusElement.textContent = "Game Over. Start a new one!";
                 }, 5000);
             }
         }
@@ -536,22 +558,6 @@
                 console.log("GameEnded event received:", winner, state);
                 updateUI();
             });
-
-            // Initial check to see if a game is already in progress
-            window.onload = async () => {
-                try {
-                    const provider = new ethers.providers.Web3Provider(window.ethereum);
-                    const contractReadOnly = new ethers.Contract(contractAddress, contractABI, provider);
-                    const currentState = await contractReadOnly.state();
-                    if (currentState === 0) {
-                        statusElement.textContent = "Game is in progress. Connect wallet to join.";
-                        renderBoard();
-                        updateUI();
-                    }
-                } catch (e) {
-                    // Ignore errors if the wallet isn't connected yet
-                }
-            };
         }
     </script>
 </body>
