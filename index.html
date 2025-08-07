@@ -867,14 +867,18 @@
                 } else if (error.code === -32002) { // Request already pending
                     showMessage('Connection request already pending. Please check your wallet.', 'text-yellow-300');
                 } else {
+                    // This is the key change: if eth_requestAccounts succeeded but something later failed,
+                    // we don't want to reset isWalletConnected to false here, as the wallet IS connected.
+                    // The specific error message from checkNetworkAndGameState or getContractGameState should prevail.
+                    // So, we just show a generic failure message and let updateGameControlsUI handle the rest of the state.
                     showMessage('Wallet connection failed. Please try again.', 'text-red-400');
                 }
                 // Reset button state and connection flags on failure
                 connectButton.textContent = 'Connect Wallet';
                 connectButton.disabled = false;
                 connectButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                isWalletConnected = false;
-                updateGameControlsUI(); // Update game controls to disabled state
+                // isWalletConnected is NOT set to false here, as it might be true if eth_requestAccounts succeeded
+                updateGameControlsUI(); // Update game controls to disabled state based on current (possibly still connected) state
             }
         };
 
@@ -892,7 +896,7 @@
                 updateGameControlsUI(); // Re-evaluate game controls based on contract state
             } catch (error) {
                 console.error("Error fetching contract game state:", error);
-                showMessage("Error fetching game state from contract. Please refresh or check network.", 'text-red-400');
+                showMessage("Error verifying game state with contract. Please refresh or check network.", 'text-red-400');
                 updateGameControlsUI(); // Ensure controls are disabled on error
             }
         };
