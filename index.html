@@ -136,12 +136,12 @@
 <body>
     <div class="container">
         <h1>Somnia Tic-Tac-Toe</h1>
-        <div id="status">Please connect your wallet.</div>
+        <div id="status">Loading...</div>
         
         <div id="game-board"></div>
 
         <div class="game-controls">
-            <button id="connect-wallet-button">Connect Wallet</button>
+            <button id="connect-wallet-button" class="hidden">Connect Wallet</button>
 
             <div id="betting-section" class="hidden">
                 <p>Choose your bet amount (in SOM):</p>
@@ -382,10 +382,6 @@
                     statusElement.textContent = `Wallet connected: ${userAddress.substring(0, 6)}...`;
                     connectWalletButton.style.display = 'none';
                     bettingSection.classList.remove('hidden');
-                    console.log("Wallet connected:", userAddress);
-                    
-                    // Initial UI update after connecting
-                    updateUI(); 
                     
                     // Listen for changes in the wallet's account or network
                     window.ethereum.on('accountsChanged', (accounts) => {
@@ -409,41 +405,10 @@
                 statusElement.textContent = "Please install MetaMask!";
             }
         }
-
-        // Event listener for connecting wallet
-        connectWalletButton.addEventListener("click", connectWallet);
-
-        // Event listeners for bet buttons
-        betButtons.forEach(button => {
-            button.addEventListener("click", () => {
-                betButtons.forEach(btn => btn.classList.remove('selected'));
-                button.classList.add('selected');
-                selectedBetAmount = parseFloat(button.dataset.value);
-                startButton.disabled = false;
-                console.log(`Bet amount selected: ${selectedBetAmount}`);
-            });
-        });
-
-        // Event listener for start game button
-        startButton.addEventListener("click", async () => {
-            if (selectedBetAmount > 0 && contract) {
-                try {
-                    const betInWei = ethers.utils.parseEther(selectedBetAmount.toString());
-                    statusElement.textContent = "Starting game... Please confirm transaction.";
-                    const tx = await contract.startGame(betInWei, { value: betInWei });
-                    await tx.wait();
-                    statusElement.textContent = "Game started! Your turn (X).";
-                    bettingSection.classList.add('hidden');
-                    renderBoard();
-                    updateUI();
-                } catch (error) {
-                    console.error("Error starting game:", error);
-                    statusElement.textContent = `Error starting game: ${error.message || "Check console"}`;
-                }
-            }
-        });
-
-        // Render the game board
+        
+        // --- Game Logic Functions ---
+        
+        // Renders the game board
         function renderBoard() {
             boardElement.innerHTML = '';
             for (let i = 0; i < 9; i++) {
@@ -455,9 +420,13 @@
             }
         }
 
-        // Handle cell click
+        // Handles a player's move
         async function handleCellClick(event) {
-            // Check if the contract is active before making a move
+            if (!contract) {
+                statusElement.textContent = "Please connect your wallet first.";
+                return;
+            }
+
             const currentState = await contract.state();
             if (currentState !== 0) {
                 statusElement.textContent = "Game is not active.";
@@ -477,14 +446,13 @@
                 const tx = await contract.makeMove(cellIndex);
                 await tx.wait();
                 statusElement.textContent = "Move successful. Waiting for AI's move.";
-                updateUI();
             } catch (error) {
                 console.error("Error making move:", error);
                 statusElement.textContent = `Error making move: ${error.message || "Check console"}`;
             }
         }
 
-        // Get the current board state from the contract
+        // Fetches the current board state from the contract
         async function getBoardState() {
             const board = [];
             for (let i = 0; i < 9; i++) {
@@ -494,50 +462,115 @@
             return board;
         }
 
-        // Update the UI based on contract events
+        // Updates the UI based on the game's state
         async function updateUI() {
             if (!contract) return;
-
-            const currentState = await contract.state();
-            const currentBoard = await getBoardState();
             
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach((cell, index) => {
-                const value = currentBoard[index];
-                cell.dataset.player = value;
-                cell.textContent = value === 1 ? 'X' : value === 2 ? 'O' : '';
-            });
-
-            // Update status based on game state
+            // Check if a game is in progress
+            const currentState = await contract.state();
             if (currentState === 0) { // Ongoing
-                renderBoard(); // Make sure the board is rendered if a game is ongoing
+                renderBoard();
+                const currentBoard = await getBoardState();
                 const playerXAddress = await contract.playerX();
                 const currentTurn = await contract.turn();
                 
+                const cells = document.querySelectorAll('.cell');
+                cells.forEach((cell, index) => {
+                    const value = currentBoard[index];
+                    cell.dataset.player = value;
+                    cell.textContent = value === 1 ? 'X' : value === 2 ? 'O' : '';
+                });
+
                 if (currentTurn === 1) {
-                    statusElement.textContent = userAddress === playerXAddress ? "Your turn (X)." : "Waiting for player X's move.";
+                    statusElement.textContent = userAddress && userAddress.toLowerCase() === playerXAddress.toLowerCase() ? "Your turn (X)." : "Waiting for Player X's move.";
                 } else {
                     statusElement.textContent = "AI is thinking...";
                 }
+                
             } else { // Game ended
                 const winnerAddress = await contract.winner();
+                const currentBoard = await getBoardState();
+                
+                const cells = document.querySelectorAll('.cell');
+                cells.forEach((cell, index) => {
+                    const value = currentBoard[index];
+                    cell.dataset.player = value;
+                    cell.textContent = value === 1 ? 'X' : value === 2 ? 'O' : '';
+                });
+                
                 if (currentState === 1) { // XWins
-                    statusElement.textContent = winnerAddress === userAddress ? "You won! 🎉" : "Player X won!";
+                    statusElement.textContent = winnerAddress && winnerAddress.toLowerCase() === userAddress.toLowerCase() ? "You won! 🎉" : "Player X won!";
                 } else if (currentState === 2) { // OWins
                     statusElement.textContent = "AI won. Better luck next time!";
                 } else if (currentState === 3) { // Draw
                     statusElement.textContent = "It's a draw! 🤝";
                 }
+                
                 setTimeout(() => {
                     bettingSection.classList.remove('hidden');
                     startButton.disabled = true;
                     selectedBetAmount = 0;
                     document.querySelector('.bet-button.selected')?.classList.remove('selected');
-                    boardElement.innerHTML = ''; // Clear the board after the game ends
+                    boardElement.innerHTML = '';
                     statusElement.textContent = "Game Over. Start a new one!";
                 }, 5000);
             }
         }
+        
+        // --- Event Listeners and Initial Setup ---
+        
+        // Event listener for connecting wallet button
+        connectWalletButton.addEventListener("click", connectWallet);
+
+        // Event listener for bet buttons
+        betButtons.forEach(button => {
+            button.addEventListener("click", () => {
+                betButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                selectedBetAmount = parseFloat(button.dataset.value);
+                startButton.disabled = false;
+            });
+        });
+
+        // Event listener for start game button
+        startButton.addEventListener("click", async () => {
+            if (selectedBetAmount > 0 && contract) {
+                try {
+                    const betInWei = ethers.utils.parseEther(selectedBetAmount.toString());
+                    statusElement.textContent = "Starting game... Please confirm transaction.";
+                    const tx = await contract.startGame(betInWei, { value: betInWei });
+                    await tx.wait();
+                    statusElement.textContent = "Game started! Your turn (X).";
+                    bettingSection.classList.add('hidden');
+                    updateUI();
+                } catch (error) {
+                    console.error("Error starting game:", error);
+                    statusElement.textContent = `Error starting game: ${error.message || "Check console"}`;
+                }
+            }
+        });
+        
+        // Check for wallet and game state on page load
+        window.onload = async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                try {
+                    const accounts = await provider.listAccounts();
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    } else {
+                        statusElement.textContent = "Please connect your wallet.";
+                        connectWalletButton.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    statusElement.textContent = "Please connect your wallet.";
+                    connectWalletButton.classList.remove('hidden');
+                }
+            } else {
+                statusElement.textContent = "Please install MetaMask!";
+                connectWalletButton.classList.add('hidden');
+            }
+        };
 
         // Watch for contract events
         if (typeof window.ethereum !== 'undefined') {
@@ -545,17 +578,14 @@
             const contractWithProvider = new ethers.Contract(contractAddress, contractABI, provider);
 
             contractWithProvider.on("GameStarted", (playerX, betAmount) => {
-                console.log("GameStarted event received:", playerX, betAmount);
                 updateUI();
             });
 
             contractWithProvider.on("MoveMade", (player, index, playerMark) => {
-                console.log("MoveMade event received:", player, index, playerMark);
                 updateUI();
             });
             
             contractWithProvider.on("GameEnded", (winner, state) => {
-                console.log("GameEnded event received:", winner, state);
                 updateUI();
             });
         }
