@@ -957,4 +957,235 @@
                     const [a, b, c] = combination;
                     if (boardState[a] === 'X' && boardState[b] === 'X' && boardState[c] === '') moveIndex = c;
                     if (boardState[a] === 'X' && boardState[c] === 'X' && boardState[b] === '') moveIndex = b;
-                    if (boardState[b] ===
+                    if (boardState[b] === 'X' && boardState[c] === 'X' && boardState[a] === '') moveIndex = a;
+                    if (moveIndex !== -1) break;
+                }
+            }
+
+            // 3. Take the center
+            if (moveIndex === -1 && boardState[4] === '') {
+                moveIndex = 4;
+            }
+
+            // 4. Take a corner
+            if (moveIndex === -1) {
+                const corners = [0, 2, 6, 8];
+                const availableCorners = corners.filter(index => boardState[index] === '');
+                if (availableCorners.length > 0) {
+                    moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
+                }
+            }
+
+            // 5. Take any remaining available spot
+            if (moveIndex === -1) {
+                moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+            
+
+            boardState[moveIndex] = 'O';
+            const cell = gameBoard.querySelector(`[data-index="${moveIndex}"]`);
+            cell.textContent = 'O';
+            cell.classList.add('cell-o', 'disabled');
+
+            if (checkWin()) {
+                endGame('Computer wins!', ethers.constants.AddressZero, false);
+                return;
+            }
+            if (checkDraw()) {
+                endGame(`It's a draw!`, ethers.constants.AddressZero, true);
+                return;
+            }
+
+            currentPlayer = 'X';
+            showMessage("Your turn...", 'text-gray-200');
+            gameBoard.querySelectorAll('.cell').forEach(c => {
+                if (boardState[c.getAttribute('data-index')] === '') {
+                    c.classList.remove('disabled');
+                }
+            });
+        };
+
+        const checkWin = () => {
+            return WINNING_COMBINATIONS.some(combination => {
+                return combination.every(index => {
+                    return boardState[index] === currentPlayer;
+                });
+            });
+        };
+
+        const checkDraw = () => {
+            return boardState.every(cell => cell !== '');
+        };
+
+        const startGame = async () => {
+            if (!isWalletConnected || window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
+                showMessage('Wallet not connected or on wrong network. Please fix.', 'text-red-400');
+                return;
+            }
+            if (betAmount === 0) {
+                showMessage('Please select a bet amount.', 'text-red-400');
+                return;
+            }
+            if (isProcessingTransaction) {
+                showMessage('Transaction already in progress. Please wait.', 'text-yellow-300');
+                return;
+            }
+
+            // Crucial: Re-check contract state immediately before sending transaction
+            try {
+                const contractGameActive = await contract.gameActive();
+                if (contractGameActive) {
+                    showMessage("Failed to place bet: A game is already active on the contract. Please complete it or use 'Force End Game'.", 'text-red-400');
+                    updateGameControlsUI(); // Sync UI
+                    return;
+                }
+            } catch (error) {
+                console.error("Error checking contract game state before starting:", error);
+                showMessage("Error verifying game state with contract. Please try again.", 'text-red-400');
+                return;
+            }
+
+            showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
+            isProcessingTransaction = true;
+            updateGameControlsUI(); // Disable controls while transaction is pending
+            
+            try {
+                const valueInWei = ethers.utils.parseEther(betAmount.toString());
+                const tx = await contract.startGame(valueInWei, { value: valueInWei });
+                showMessage("Transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+                showMessage(`Bet of ${betAmount} STT placed. Game starting...`, 'text-green-400');
+
+                boardState = ['', '', '', '', '', '', '', '', ''];
+                currentPlayer = 'X';
+                isGameActive = true;
+
+                gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('cell-x', 'cell-o', 'disabled');
+                });
+                
+                showMessage("Game started! Your turn...", 'text-gray-200');
+                
+            } catch (error) {
+                console.error("Error starting game or placing bet:", error);
+                if (error.code === 4001) { // User rejected
+                    showMessage("Transaction rejected by user.", 'text-red-400');
+                } else if (error.data && error.data.originalError && error.data.originalError.data && error.data.originalError.data.includes("Game is already active")) {
+                    showMessage("Failed to place bet: A game is already active on the contract. Please refresh to sync.", 'text-red-400');
+                } else {
+                    showMessage(`Failed to place bet. ${error.message || 'Unknown error.'}`, 'text-red-400');
+                }
+            } finally {
+                isProcessingTransaction = false;
+                updateGameControlsUI(); // Re-enable or update controls based on final state
+            }
+        };
+
+        const endGame = async (message, winnerAddress, isDraw) => {
+            isGameActive = false;
+            showMessage(message, 'text-green-400');
+            gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
+
+            isProcessingTransaction = true;
+            updateGameControlsUI(); // Disable controls during payout transaction
+
+            showMessage("Ending game and processing payout...", 'text-yellow-300');
+            try {
+                const tx = await contract.concludeGame(winnerAddress, isDraw); // Changed to concludeGame
+                showMessage("Payout transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+
+                let outcomeText = '';
+                let payoutValue = 0;
+                if (isDraw) {
+                    outcomeText = 'Draw';
+                    payoutValue = betAmount;
+                } else if (winnerAddress === userAddress) {
+                    outcomeText = 'Win';
+                    payoutValue = betAmount * 2;
+                } else {
+                    outcomeText = 'Loss';
+                    payoutValue = -betAmount;
+                }
+
+                showResultModal(`${outcomeText}!`, `Game concluded. Check your wallet for ${payoutValue.toFixed(2)} STT.`, true, payoutValue);
+                
+            } catch (error) {
+                console.error("Error ending game or processing payout:", error);
+                if (error.code === 4001) { // User rejected
+                    showResultModal("Transaction Rejected", `Payout transaction was rejected by user.`, false, 0);
+                } else {
+                    showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Unknown error.'}`, false, 0);
+                }
+            } finally {
+                isProcessingTransaction = false;
+                updateGameControlsUI(); // Re-enable or update controls
+            }
+        };
+
+        const forceEndGame = async () => {
+            if (!isWalletConnected || !contract || isProcessingTransaction) {
+                showMessage('Wallet not connected, contract not initialized, or transaction in progress.', 'text-red-400');
+                return;
+            }
+            showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
+            isProcessingTransaction = true;
+            updateGameControlsUI(); // Disable controls during force end transaction
+            try {
+                // Call concludeGame with address(0) and false to signify a forced end/loss for current player
+                const tx = await contract.concludeGame(ethers.constants.AddressZero, false); 
+                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+                showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
+                // Re-sync UI after successful force end
+                isGameActive = false; // Manually set to false after successful force end
+                await getContractGameState(); // Re-check actual contract state
+            } catch (error) {
+                console.error("Error forcing end game:", error);
+                if (error.code === 4001) { // User rejected
+                    showMessage(`Force end game rejected by user.`, 'text-red-400');
+                } else {
+                    showMessage(`Failed to force end game. ${error.message || 'Unknown error.'}`, 'text-red-400');
+                }
+            } finally {
+                isProcessingTransaction = false;
+                updateGameControlsUI(); // Re-enable or update controls
+            }
+        };
+        
+        const setBet = (amount, button) => {
+            betAmount = amount;
+            betButtons.forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+            showMessage(`Bet set to ${betAmount} STT.`, 'text-gray-200');
+            updateGameControlsUI(); // Re-evaluate button state after bet selection
+        };
+        
+        const showMessage = (message, colorClass = 'text-gray-200') => {
+            messageBox.innerHTML = message;
+            messageBox.className = `message-box ${colorClass}`; // Use base class and then add color
+        };
+
+        const showResultModal = (title, message, isSuccess, transactionValue) => {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            
+            if (isSuccess) {
+                txStatus.textContent = 'Success';
+                txStatus.classList.remove('text-red-400');
+                txStatus.classList.add('text-green-400');
+                txValue.textContent = `${transactionValue >= 0 ? '+' : ''}${transactionValue.toFixed(2)} STT`;
+            } else {
+                txStatus.textContent = 'Failed';
+                txStatus.classList.remove('text-green-400');
+                txStatus.classList.add('text-red-400');
+                txValue.textContent = 'N/A';
+            }
+            modalDetails.classList.remove('hidden');
+            resultModal.classList.remove('hidden');
+        };
+
+    </script>
+</body>
+</html>
