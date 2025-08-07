@@ -1,1053 +1,1194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Somnia Tic-Tac-Toe</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.umd.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1a202c; /* Dark background */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 1rem;
-        }
-        .game-container {
-            max-width: 600px;
-            width: 100%;
-            background-color: #2d3748; /* Slightly lighter dark background for the card */
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-            padding: 2.5rem;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        .game-title {
-            font-size: 2.5rem; /* Larger title */
-            font-weight: 700;
-            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* Purple gradient */
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
-        }
-        .game-subtitle {
-            color: #cbd5e0; /* Lighter gray for subtitle */
-            font-size: 1rem;
-        }
-        .section-header {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #e2e8f0; /* Off-white for section headers */
-            margin-bottom: 1rem;
-        }
-        .bet-buttons-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Responsive grid for buttons */
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-        }
-        .bet-button {
-            background-color: #4a5568; /* Darker gray for buttons */
-            color: white;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            border-radius: 9999px; /* Fully rounded */
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: all 0.2s ease-in-out;
-            border: 2px solid transparent; /* For selected state */
-        }
-        .bet-button:hover:not(.selected) {
-            background-color: #6366f1; /* Purple on hover */
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-        .bet-button.selected {
-            background-color: #6366f1; /* Purple when selected */
-            border-color: #a78bfa; /* Lighter purple border */
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-        }
-        .game-board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.75rem;
-            width: 318px; /* 3 * 100px cell + 2 * 9px gap */
-            height: 318px;
-            margin: 0 auto; /* Center the board */
-            background-color: #1a202c; /* Even darker for board background */
-            border-radius: 12px;
-            padding: 0.75rem;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
-        }
-        .cell {
-            width: 100%;
-            height: 100%;
-            background-color: #2d3748; /* Darker gray for cells */
-            color: white;
-            font-size: 3.5rem; /* Larger X/O */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-        .cell:not(.disabled):hover {
-            background-color: #4a5568; /* Lighter gray on hover */
-            transform: scale(1.03);
-        }
-        .cell.disabled {
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
-        .cell-x {
-            color: #f87171; /* Brighter red for X */
-        }
-        .cell-o {
-            color: #60a5fa; /* Brighter blue for O */
-        }
-        .message-box {
-            min-height: 40px; /* Adjusted min-height */
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #fcd34d; /* Yellow for messages */
-            margin-top: 1rem;
-            margin-bottom: 1.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            background-color: rgba(0, 0, 0, 0.2); /* Subtle background for message */
-        }
-        .main-action-button {
-            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* Purple gradient */
-            color: white;
-            font-weight: 700;
-            padding: 0.8rem 2.5rem;
-            border-radius: 9999px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s ease-in-out;
-            margin-top: 1rem;
-        }
-        .main-action-button:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
-        }
-        .main-action-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            background-image: none; /* Remove gradient when disabled */
-            background-color: #4a5568; /* Solid gray when disabled */
-        }
-        
-        /* Modal specific styles */
-        .modal-content {
-            background-color: #2d3748; /* Darker background for modal */
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            max-width: 400px;
-            width: 90%;
-            color: #e2e8f0;
-        }
-        .modal-title {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #8b5cf6; /* Purple for modal title */
-            margin-bottom: 1rem;
-        }
-        .modal-message {
-            color: #cbd5e0;
-            margin-bottom: 1.5rem;
-        }
-        .modal-details {
-            background-color: #1a202c;
-            padding: 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            color: #a0aec0;
-            text-align: left;
-        }
-        .modal-details p {
-            margin-bottom: 0.5rem;
-        }
-        .modal-details p:last-child {
-            margin-bottom: 0;
-        }
-        .modal-button {
-            background-image: linear-gradient(to right, #6366f1, #8b5cf6);
-            color: white;
-            font-weight: 600;
-            padding: 0.6rem 1.8rem;
-            border-radius: 9999px;
-            transition: transform 0.1s ease, box-shadow 0.2s ease;
-        }
-        .modal-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Somnia Tic-Tac-Toe</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Ethers.js CDN for blockchain interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .game-container {
+            max-width: 600px;
+            width: 100%;
+            background-color: #2d3748; /* Slightly lighter dark background for the card */
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            padding: 2.5rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .game-title {
+            font-size: 2.5rem; /* Larger title */
+            font-weight: 700;
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* Purple gradient */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .game-subtitle {
+            color: #cbd5e0; /* Lighter gray for subtitle */
+            font-size: 1rem;
+        }
+        .section-header {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #e2e8f0; /* Off-white for section headers */
+            margin-bottom: 1rem;
+        }
+        .bet-buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Responsive grid for buttons */
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .bet-button {
+            background-color: #4a5568; /* Darker gray for buttons */
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px; /* Fully rounded */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent; /* For selected state */
+        }
+        .bet-button:hover:not(.selected) {
+            background-color: #6366f1; /* Purple on hover */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        .bet-button.selected {
+            background-color: #6366f1; /* Purple when selected */
+            border-color: #a78bfa; /* Lighter purple border */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            width: 318px; /* 3 * 100px cell + 2 * 9px gap */
+            height: 318px;
+            margin: 0 auto; /* Center the board */
+            background-color: #1a202c; /* Even darker for board background */
+            border-radius: 12px;
+            padding: 0.75rem;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        .cell {
+            width: 100%;
+            height: 100%;
+            background-color: #2d3748; /* Darker gray for cells */
+            color: white;
+            font-size: 3.5rem; /* Larger X/O */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .cell:not(.disabled):hover {
+            background-color: #4a5568; /* Lighter gray on hover */
+            transform: scale(1.03);
+        }
+        .cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        .cell-x {
+            color: #f87171; /* Brighter red for X */
+        }
+        .cell-o {
+            color: #60a5fa; /* Brighter blue for O */
+        }
+        .message-box {
+            min-height: 40px; /* Adjusted min-height */
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #fcd34d; /* Yellow for messages */
+            margin-top: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background-color: rgba(0, 0, 0, 0.2); /* Subtle background for message */
+        }
+        .main-action-button {
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* Purple gradient */
+            color: white;
+            font-weight: 700;
+            padding: 0.8rem 2.5rem;
+            border-radius: 9999px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease-in-out;
+            margin-top: 1rem;
+        }
+        .main-action-button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
+        }
+        .main-action-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-image: none; /* Remove gradient when disabled */
+            background-color: #4a5568; /* Solid gray when disabled */
+        }
+
+        /* Modal specific styles */
+        .modal-content {
+            background-color: #2d3748; /* Darker background for modal */
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            width: 90%;
+            color: #e2e8f0;
+        }
+        .modal-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #8b5cf6; /* Purple for modal title */
+            margin-bottom: 1rem;
+        }
+        .modal-message {
+            color: #cbd5e0;
+            margin-bottom: 1.5rem;
+        }
+        .modal-details {
+            background-color: #1a202c;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #a0aec0;
+            text-align: left;
+        }
+        .modal-details p {
+            margin-bottom: 0.5rem;
+        }
+        .modal-details p:last-child {
+            margin-bottom: 0;
+        }
+        .modal-button {
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6);
+            color: white;
+            font-weight: 600;
+            padding: 0.6rem 1.8rem;
+            border-radius: 9999px;
+            transition: transform 0.1s ease, box-shadow 0.2s ease;
+        }
+        .modal-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+    </style>
 </head>
 <body>
-    <div class="game-container">
-                <div>
-            <h1 class="game-title">Somnia Tic-Tac-Toe</h1>
-            <p class="game-subtitle">Play a game against a strategic AI on the Somnia Testnet</p>
-        </div>
-                <div class="space-y-2">
-            <button id="connectButton" class="main-action-button">
-                Connect Wallet
-            </button>
-            <div id="walletInfo" class="text-sm text-gray-400 break-words hidden">
-                <p>Address: <span id="walletAddress" class="text-gray-200"></span></p>
-                <p>Balance: <span id="walletBalance" class="text-green-400"></span> STT</p>
-            </div>
-                        <button id="switchNetworkButton" class="main-action-button bg-yellow-600 hover:bg-yellow-700 hidden">
-                Switch to Somnia Testnet
-            </button>
-        </div>
-                <div>
-            <h2 class="section-header">Select Your Bet</h2>
-            <div id="betting-amounts" class="bet-buttons-grid">
-                <button class="bet-button" data-bet="0.01">0.01 STT</button>
-                <button class="bet-button" data-bet="0.05">0.05 STT</button>
-                <button class="bet-button" data-bet="0.1">0.1 STT</button>
-                <button class="bet-button" data-bet="1">1 STT</button>
-            </div>
-        </div>
-                <div id="game-board" class="game-board">
-                    </div>
-        
-        <div id="message-box" class="message-box">
-            Connect your wallet and select a bet to start.
-        </div>
-        <button id="startGameBtn" class="main-action-button" disabled>
-            Start Game
-        </button>
-                <button id="forceEndGameBtn" class="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full shadow-lg hidden">
-            Force End Game (if stuck)
-        </button>
-        
-                <div class="text-center mt-8 text-gray-400 text-sm">
-            Created by <a href="https://x.com/Surya_xyz_" target="_blank" class="text-blue-400 hover:underline">Surya_xyz_</a>
-        </div>
-    </div>
-        <div id="resultModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 hidden">
-        <div class="modal-content">
-            <h3 id="modalTitle" class="modal-title"></h3>
-            <p id="modalMessage" class="modal-message"></p>
-            <div id="modalDetails" class="modal-details hidden">
-                <p class="font-bold text-white mb-2">Transaction Status: <span id="txStatus"></span></p>
-                <p>Value: <span id="txValue"></span></p>
-            </div>
-            <div class="flex justify-center mt-6">
-                <button id="closeModalBtn" class="modal-button">
-                    OK
-                </button>
-            </div>
-        </div>
-    </div>
-    <script>
-        // --- CONSTANTS ---
-        const NETWORK_DETAILS = {
-            chainName: 'Somnia Testnet',
-            chainId: '0xC428', // 50312 in hex
-            rpcUrls: ['https://rpc.ankr.com/somnia_testnet'], // Updated RPC URL
-            nativeCurrency: { name: 'STT', symbol: 'STT', decimals: 18 },
-            blockExplorerUrls: ['https://shannon-explorer.somnia.network/'],
-        };
-        const WINNING_COMBINATIONS = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-            [0, 4, 8], [2, 4, 6]             // Diagonals
-        ];
-        // --- SMART CONTRACT DETAILS ---
-        const CONTRACT_ADDRESS = "0x0476b50369681e36d54e809090BE83810022B4f3"; // Updated Tic-Tac-Toe Contract Address
-        const CONTRACT_ABI = [
-            {
-                "inputs": [],
-                "name": "claimWinnings",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "_winner",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "bool",
-                        "name": "_isDraw",
-                        "type": "bool"
-                    }
-                ],
-                "name": "concludeGame",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "stateMutability": "nonpayable",
-                "type": "constructor"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "to",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "amount",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "FundsWithdrawn",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "uint256",
-                        "name": "gameId",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "winner",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "betAmount",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "string",
-                        "name": "outcome",
-                        "type": "string"
-                    }
-                ],
-                "name": "GameConcluded",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "uint256",
-                        "name": "gameId",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "playerX",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "betAmount",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "GameStarted",
-                "type": "event"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_gameId",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "joinGame",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint8",
-                        "name": "_index",
-                        "type": "uint8"
-                    }
-                ],
-                "name": "makeMove",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "uint256",
-                        "name": "gameId",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "player",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint8",
-                        "name": "index",
-                        "type": "uint8"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint8",
-                        "name": "marker",
-                        "type": "uint8"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint8[9]",
-                        "name": "currentBoard",
-                        "type": "uint8[9]"
-                    }
-                ],
-                "name": "MoveMade",
-                "type": "event"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "uint256",
-                        "name": "gameId",
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "playerO",
-                        "type": "address"
-                    }
-                ],
-                "name": "PlayerOJoined",
-                "type": "event"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "_betAmount",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "startGame",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
-            },
-            {
-                "anonymous": false,
-                "inputs": [
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "player",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "amount",
-                        "type": "uint256"
-                    }
-                ],
-                "name": "WinningsClaimed",
-                "type": "event"
-            },
-            {
-                "stateMutability": "payable",
-                "type": "fallback"
-            },
-            {
-                "inputs": [],
-                "name": "withdrawOwnerFunds",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            },
-            {
-                "stateMutability": "payable",
-                "type": "receive"
-            },
-            {
-                "inputs": [],
-                "name": "currentGame",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "playerX",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "playerO",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "betAmount",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint8",
-                        "name": "currentTurn",
-                        "type": "uint8"
-                    },
-                    {
-                        "internalType": "bool",
-                        "name": "gameActive",
-                        "type": "bool"
-                    },
-                    {
-                        "internalType": "bool",
-                        "name": "gameConcluded",
-                        "type": "bool"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "winner",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "gameId",
-                "outputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [],
-                "name": "owner",
-                "outputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [
-                    {
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    }
-                ],
-                "name": "playerBalances",
-                "outputs": [
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            }
-        ];
-        
-        // --- DOM ELEMENTS ---
-        const gameBoard = document.getElementById('game-board');
-        const messageBox = document.getElementById('message-box');
-        const startGameBtn = document.getElementById('startGameBtn');
-        const betButtons = document.querySelectorAll('.bet-button');
-        const resultModal = document.getElementById('resultModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalMessage = document.getElementById('modalMessage');
-        const modalDetails = document.getElementById('modalDetails');
-        const txStatus = document.getElementById('txStatus');
-        const txValue = document.getElementById('txValue');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const forceEndGameBtn = document.getElementById('forceEndGameBtn');
-        // New DOM elements for wallet info
-        const connectButton = document.getElementById('connectButton');
-        const walletInfo = document.getElementById('walletInfo');
-        const walletAddressSpan = document.getElementById('walletAddress');
-        const walletBalanceSpan = document.getElementById('walletBalance');
-        const switchNetworkButton = document.getElementById('switchNetworkButton');
-        // --- GAME STATE VARIABLES ---
-        let provider = null;
-        let signer = null;
-        let userAddress = null;
-        let contract = null;
-        let boardState = ['', '', '', '', '', '', '', '', ''];
-        let currentPlayer = 'X'; // Player is always 'X'
-        let isGameActive = false;
-        let betAmount = 0;
-        let isWalletConnected = false;
-        let isProcessingTransaction = false; // Flag to prevent multiple transactions
-        
-        // --- EVENT LISTENERS ---
-        window.onload = () => {
-            if (window.ethereum) {
-                window.ethereum.on('accountsChanged', handleAccountsChanged);
-                window.ethereum.on('chainChanged', handleChainChanged);
-                // Attempt to connect wallet automatically on page load
-                checkWalletConnection();
-            } else {
-                showMessage('Please install MetaMask or a compatible wallet to play.', 'text-red-400');
-                connectButton.textContent = 'Wallet Not Found';
-                connectButton.disabled = true;
-                connectButton.classList.add('opacity-50', 'cursor-not-allowed');
-                startGameBtn.disabled = true;
-                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            }
-            connectButton.addEventListener('click', connectWallet);
-            startGameBtn.addEventListener('click', () => {
-                if (!isWalletConnected || window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
-                    showMessage('Please connect your wallet to the correct network first.', 'text-red-400');
-                } else if (betAmount > 0) {
-                    startGame();
-                } else {
-                    showMessage('Please select a bet amount before starting.', 'text-red-400');
-                }
-            });
-            betButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const amount = parseFloat(button.getAttribute('data-bet'));
-                    setBet(amount, button);
-                });
-            });
-            closeModalBtn.addEventListener('click', () => {
-                resultModal.classList.add('hidden');
-            });
-            forceEndGameBtn.addEventListener('click', forceEndGame);
-            switchNetworkButton.addEventListener('click', async () => {
-                if (window.ethereum) {
-                    try {
-                        await window.ethereum.request({
-                            method: 'wallet_switchEthereumChain',
-                            params: [{ chainId: NETWORK_DETAILS.chainId }],
-                        });
-                        // If successful, chainChanged event listener will reload the page
-                    } catch (error) {
-                        console.error("Failed to request network switch:", error);
-                        showMessage(`Failed to switch network. Please do so manually in your wallet.`, 'text-red-400');
-                    }
-                }
-            });
-            createBoard();
-            updateGameControlsUI(); // Initial UI update
-        };
-        // --- WALLET CONNECTION & STATE FUNCTIONS ---
-        const checkWalletConnection = async () => {
-            if (!window.ethereum) return;
-            try {
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (accounts.length > 0) {
-                    userAddress = accounts[0];
-                    isWalletConnected = true;
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    signer = provider.getSigner();
-                    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                    await checkNetworkAndGameState();
-                }
-            } catch (error) {
-                console.error("Error checking wallet connection:", error);
-            } finally {
-                updateWalletUI();
-                updateGameControlsUI();
-            }
-        };
-        const connectWallet = async () => {
-            if (!window.ethereum) {
-                showMessage('MetaMask is not installed. Please install it to play.', 'text-red-400');
-                return;
-            }
-            connectButton.textContent = 'Connecting...';
-            connectButton.disabled = true;
-            try {
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                await checkWalletConnection();
-            } catch (error) {
-                console.error('Wallet connection error:', error);
-                if (error.code === 4001) {
-                    showMessage('Wallet connection rejected by user.', 'text-red-400');
-                } else {
-                    showMessage('Wallet connection failed. Please try again.', 'text-red-400');
-                }
-                userAddress = null;
-                isWalletConnected = false;
-                updateWalletUI();
-                updateGameControlsUI();
-            }
-        };
-        const updateWalletUI = async () => {
-            if (isWalletConnected && userAddress) {
-                connectButton.textContent = 'Wallet Connected';
-                connectButton.disabled = true;
-                connectButton.classList.add('opacity-50', 'cursor-not-allowed');
-                walletInfo.classList.remove('hidden');
-                walletAddressSpan.textContent = `${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
-                await updateBalance();
-            } else {
-                connectButton.textContent = 'Connect Wallet';
-                connectButton.disabled = false;
-                connectButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                walletInfo.classList.add('hidden');
-            }
-        };
-        const updateBalance = async () => {
-            if (provider && userAddress) {
-                try {
-                    const balance = await provider.getBalance(userAddress);
-                    const formattedBalance = ethers.utils.formatEther(balance);
-                    walletBalanceSpan.textContent = parseFloat(formattedBalance).toFixed(4);
-                } catch (error) {
-                    console.error("Failed to fetch balance:", error);
-                    walletBalanceSpan.textContent = 'Error';
-                }
-            }
-        };
-        const updateGameControlsUI = async () => {
-            const onCorrectNetwork = isWalletConnected && window.ethereum.chainId === NETWORK_DETAILS.chainId;
-            if (onCorrectNetwork && !isProcessingTransaction) {
-                try {
-                    const { gameActive } = await contract.currentGame();
-                    isGameActive = gameActive;
-                    if (isGameActive) {
-                        showMessage("A game is active. Please complete it or use 'Force End Game'.", 'text-red-400');
-                        startGameBtn.disabled = true;
-                        betButtons.forEach(btn => btn.disabled = true);
-                        forceEndGameBtn.classList.remove('hidden');
-                    } else {
-                        const hasBet = betAmount > 0;
-                        startGameBtn.textContent = hasBet ? 'Start Game' : 'Select Bet';
-                        startGameBtn.disabled = !hasBet;
-                        betButtons.forEach(btn => btn.disabled = false);
-                        forceEndGameBtn.classList.add('hidden');
-                        showMessage('Wallet connected. Select your bet to start.', 'text-green-400');
-                    }
-                } catch (error) {
-                    console.error("Error fetching contract game state:", error);
-                    showMessage("Error verifying game state. Please check network or refresh.", 'text-red-400');
-                    startGameBtn.disabled = true;
-                    betButtons.forEach(btn => btn.disabled = true);
-                }
-                switchNetworkButton.classList.add('hidden');
-            } else {
-                startGameBtn.disabled = true;
-                betButtons.forEach(btn => btn.disabled = true);
-                forceEndGameBtn.classList.add('hidden');
-                if (isWalletConnected && window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
-                    switchNetworkButton.classList.remove('hidden');
-                    showMessage(`Please switch your wallet to the ${NETWORK_DETAILS.chainName} network.`, 'text-red-400');
-                } else {
-                    switchNetworkButton.classList.add('hidden');
-                    if (!isWalletConnected) {
-                        showMessage('Connect your wallet and select a bet to start.', 'text-gray-200');
-                    } else if (isProcessingTransaction) {
-                        showMessage('Transaction in progress. Please wait.', 'text-yellow-300');
-                    }
-                }
-            }
-        };
-        const checkNetworkAndGameState = async () => {
-            const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-            if (currentChainId !== NETWORK_DETAILS.chainId) {
-                isWalletConnected = true; // Wallet is connected, but on wrong network
-                updateGameControlsUI();
-                return;
-            }
-            // If on the correct network, initialize contract and check game state
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            signer = provider.getSigner();
-            contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-            await updateGameControlsUI();
-        };
-        const handleAccountsChanged = async (accounts) => {
-            if (accounts.length === 0) {
-                userAddress = null;
-                isWalletConnected = false;
-                showMessage('Wallet disconnected.', 'text-red-400');
-            } else {
-                userAddress = accounts[0];
-                isWalletConnected = true;
-                showMessage('Wallet connected.', 'text-green-400');
-            }
-            updateWalletUI();
-            await updateGameControlsUI();
-        };
-        const handleChainChanged = async (chainId) => {
-            console.log('Chain changed to:', chainId);
-            window.location.reload();
-        };
-        // --- GAME LOGIC FUNCTIONS ---
-        const createBoard = () => {
-            gameBoard.innerHTML = '';
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement('div');
-                cell.classList.add('cell');
-                cell.setAttribute('data-index', i);
-                cell.addEventListener('click', handleCellClick);
-                gameBoard.appendChild(cell);
-            }
-        };
-        const handleCellClick = (event) => {
-            const cell = event.target;
-            const index = parseInt(cell.getAttribute('data-index'));
-            if (isGameActive && boardState[index] === '' && currentPlayer === 'X' && !isProcessingTransaction) {
-                // Process player move
-                boardState[index] = currentPlayer;
-                cell.textContent = currentPlayer;
-                cell.classList.add(`cell-${currentPlayer.toLowerCase()}`, 'disabled');
-                // Check for win/draw
-                if (checkWin()) {
-                    endGame(`${currentPlayer} wins!`, userAddress, false);
-                    return;
-                }
-                if (checkDraw()) {
-                    endGame(`It's a draw!`, ethers.constants.AddressZero, true);
-                    return;
-                }
-                // Switch to AI's turn
-                currentPlayer = 'O';
-                showMessage("Computer's turn...", 'text-gray-200');
-                gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
-                setTimeout(computerMove, 1000);
-            } else if (isGameActive && boardState[index] === '' && currentPlayer === 'X' && isProcessingTransaction) {
-                showMessage("Please wait for the current transaction to complete.", 'text-yellow-300');
-            }
-        };
-        const computerMove = () => {
-            let moveIndex = -1;
-            const availableMoves = boardState.map((cell, index) => cell === '' ? index : null).filter(val => val !== null);
-            // AI logic
-            // 1. Check for winning moves for 'O'
-            for (const combination of WINNING_COMBINATIONS) {
-                const [a, b, c] = combination;
-                if (boardState[a] === 'O' && boardState[b] === 'O' && boardState[c] === '') moveIndex = c;
-                if (boardState[a] === 'O' && boardState[c] === 'O' && boardState[b] === '') moveIndex = b;
-                if (boardState[b] === 'O' && boardState[c] === 'O' && boardState[a] === '') moveIndex = a;
-                if (moveIndex !== -1) break;
-            }
-            // 2. Block player's winning moves ('X')
-            if (moveIndex === -1) {
-                for (const combination of WINNING_COMBINATIONS) {
-                    const [a, b, c] = combination;
-                    if (boardState[a] === 'X' && boardState[b] === 'X' && boardState[c] === '') moveIndex = c;
-                    if (boardState[a] === 'X' && boardState[c] === 'X' && boardState[b] === '') moveIndex = b;
-                    if (boardState[b] === 'X' && boardState[c] === 'X' && boardState[a] === '') moveIndex = a;
-                    if (moveIndex !== -1) break;
-                }
-            }
-            // 3. Take the center
-            if (moveIndex === -1 && boardState[4] === '') {
-                moveIndex = 4;
-            }
-            // 4. Take a corner
-            if (moveIndex === -1) {
-                const corners = [0, 2, 6, 8];
-                const availableCorners = corners.filter(index => boardState[index] === '');
-                if (availableCorners.length > 0) {
-                    moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
-                }
-            }
-            // 5. Take any remaining available spot
-            if (moveIndex === -1) {
-                moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-            }
-            boardState[moveIndex] = 'O';
-            const cell = gameBoard.querySelector(`[data-index="${moveIndex}"]`);
-            cell.textContent = 'O';
-            cell.classList.add('cell-o', 'disabled');
-            if (checkWin()) {
-                endGame('Computer wins!', ethers.constants.AddressZero, false);
-                return;
-            }
-            if (checkDraw()) {
-                endGame(`It's a draw!`, ethers.constants.AddressZero, true);
-                return;
-            }
-            currentPlayer = 'X';
-            showMessage("Your turn...", 'text-gray-200');
-            gameBoard.querySelectorAll('.cell').forEach(c => {
-                if (boardState[c.getAttribute('data-index')] === '') {
-                    c.classList.remove('disabled');
-                }
-            });
-        };
-        const checkWin = () => {
-            return WINNING_COMBINATIONS.some(combination => {
-                return combination.every(index => {
-                    return boardState[index] === currentPlayer;
-                });
-            });
-        };
-        const checkDraw = () => {
-            return boardState.every(cell => cell !== '');
-        };
-        const startGame = async () => {
-            if (!isWalletConnected || window.ethereum.chainId !== NETWORK_DETAILS.chainId || betAmount === 0 || isProcessingTransaction) {
-                return;
-            }
-            isProcessingTransaction = true;
-            updateGameControlsUI();
-            showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
-            try {
-                const valueInWei = ethers.utils.parseEther(betAmount.toString());
-                const tx = await contract.startGame(valueInWei, { value: valueInWei });
-                showMessage("Transaction sent! Waiting for confirmation...", 'text-yellow-300');
-                await tx.wait();
-                showMessage(`Bet of ${betAmount} STT placed. Game starting...`, 'text-green-400');
-                boardState = ['', '', '', '', '', '', '', '', ''];
-                currentPlayer = 'X';
-                isGameActive = true;
-                gameBoard.querySelectorAll('.cell').forEach(cell => {
-                    cell.textContent = '';
-                    cell.classList.remove('cell-x', 'cell-o', 'disabled');
-                });
-                showMessage("Game started! Your turn...", 'text-gray-200');
-            } catch (error) {
-                console.error("Error starting game or placing bet:", error);
-                if (error.code === 4001) {
-                    showMessage("Transaction rejected by user.", 'text-red-400');
-                } else {
-                    showMessage(`Failed to place bet. ${error.message || 'Unknown error.'}`, 'text-red-400');
-                }
-            } finally {
-                isProcessingTransaction = false;
-                updateGameControlsUI();
-            }
-        };
-        const endGame = async (message, winnerAddress, isDraw) => {
-            isGameActive = false;
-            showMessage(message, 'text-green-400');
-            gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
-            isProcessingTransaction = true;
-            updateGameControlsUI();
-            showMessage("Ending game and processing payout...", 'text-yellow-300');
-            try {
-                const tx = await contract.concludeGame(winnerAddress, isDraw);
-                showMessage("Payout transaction sent! Waiting for confirmation...", 'text-yellow-300');
-                await tx.wait();
-                let outcomeText = '';
-                let payoutValue = 0;
-                if (isDraw) {
-                    outcomeText = 'Draw';
-                    payoutValue = betAmount;
-                } else if (winnerAddress === userAddress) {
-                    outcomeText = 'Win';
-                    payoutValue = betAmount * 2;
-                } else {
-                    outcomeText = 'Loss';
-                    payoutValue = -betAmount;
-                }
-                showResultModal(`${outcomeText}!`, `Game concluded. Payout transaction confirmed.`, true, payoutValue);
-            } catch (error) {
-                console.error("Error ending game or processing payout:", error);
-                if (error.code === 4001) {
-                    showResultModal("Transaction Rejected", `Payout transaction was rejected.`, false, 0);
-                } else {
-                    showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Unknown error.'}`, false, 0);
-                }
-            } finally {
-                isProcessingTransaction = false;
-                updateGameControlsUI();
-            }
-        };
-        const forceEndGame = async () => {
-            if (!isWalletConnected || !contract || isProcessingTransaction) {
-                showMessage('Wallet not connected, contract not initialized, or transaction in progress.', 'text-red-400');
-                return;
-            }
-            showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
-            isProcessingTransaction = true;
-            updateGameControlsUI();
-            try {
-                const tx = await contract.concludeGame(ethers.constants.AddressZero, false); 
-                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300');
-                await tx.wait();
-                showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
-                isGameActive = false;
-                updateGameControlsUI();
-            } catch (error) {
-                console.error("Error forcing end game:", error);
-                if (error.code === 4001) {
-                    showMessage(`Force end game rejected by user.`, 'text-red-400');
-                } else {
-                    showMessage(`Failed to force end game. ${error.message || 'Unknown error.'}`, 'text-red-400');
-                }
-            } finally {
-                isProcessingTransaction = false;
-                updateGameControlsUI();
-            }
-        };
-        const setBet = (amount, button) => {
-            betAmount = amount;
-            betButtons.forEach(btn => btn.classList.remove('selected'));
-            button.classList.add('selected');
-            showMessage(`Bet set to ${betAmount} STT.`, 'text-gray-200');
-            updateGameControlsUI();
-        };
-        const showMessage = (message, colorClass = 'text-gray-200') => {
-            messageBox.innerHTML = message;
-            messageBox.className = `message-box ${colorClass}`;
-        };
-        const showResultModal = (title, message, isSuccess, transactionValue) => {
-            modalTitle.textContent = title;
-            modalMessage.textContent = message;
-            if (isSuccess) {
-                txStatus.textContent = 'Success';
-                txStatus.className = 'text-green-400';
-                txValue.textContent = `${transactionValue >= 0 ? '+' : ''}${transactionValue.toFixed(2)} STT`;
-            } else {
-                txStatus.textContent = 'Failed';
-                txStatus.className = 'text-red-400';
-                txValue.textContent = 'N/A';
-            }
-            modalDetails.classList.remove('hidden');
-            resultModal.classList.remove('hidden');
-        };
-    </script>
+
+    <div class="game-container">
+
+        <!-- Header and Game Title -->
+        <div>
+            <h1 class="game-title">Somnia Tic-Tac-Toe</h1>
+            <p class="game-subtitle">Play a game against a strategic AI on the Somnia Testnet</p>
+        </div>
+
+        <!-- Wallet Connection Status and Info -->
+        <div class="space-y-2">
+            <button id="connectButton" class="main-action-button">
+                Connect Wallet
+            </button>
+            <div id="walletInfo" class="text-sm text-gray-400 break-words hidden">
+                <p>Address: <span id="walletAddress" class="text-gray-200"></span></p>
+                <p>Balance: <span id="walletBalance" class="text-green-400"></span> STT</p>
+            </div>
+            <!-- This button is shown if the wallet is connected but on the wrong network -->
+            <button id="switchNetworkButton" class="main-action-button bg-yellow-600 hover:bg-yellow-700 hidden">
+                Switch to Somnia Testnet
+            </button>
+        </div>
+
+        <!-- Bet Selection Section -->
+        <div>
+            <h2 class="section-header">Select Your Bet</h2>
+            <div id="betting-amounts" class="bet-buttons-grid">
+                <button class="bet-button" data-bet="0.01">0.01 STT</button>
+                <button class="bet-button" data-bet="0.05">0.05 STT</button>
+                <button class="bet-button" data-bet="0.1">0.1 STT</button>
+                <button class="bet-button" data-bet="1">1 STT</button>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div id="game-board" class="game-board">
+            <!-- Cells will be generated here by JavaScript -->
+        </div>
+        
+        <div id="message-box" class="message-box">
+            Connect your wallet and select a bet to start.
+        </div>
+
+        <button id="startGameBtn" class="main-action-button" disabled>
+            Start Game
+        </button>
+
+        <!-- Force End Game Button (for debugging stuck contract states) -->
+        <button id="forceEndGameBtn" class="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full shadow-lg hidden">
+            Force End Game (if stuck)
+        </button>
+        
+        <!-- Credit line -->
+        <div class="text-center mt-8 text-gray-400 text-sm">
+            Created by <a href="https://x.com/Surya_xyz_" target="_blank" class="text-blue-400 hover:underline">Surya_xyz_</a>
+        </div>
+
+    </div>
+
+    <!-- Modal for showing game results and transaction info -->
+    <div id="resultModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-75 hidden">
+        <div class="modal-content">
+            <h3 id="modalTitle" class="modal-title"></h3>
+            <p id="modalMessage" class="modal-message"></p>
+            <div id="modalDetails" class="modal-details hidden">
+                <p class="font-bold text-white mb-2">Transaction Status: <span id="txStatus"></span></p>
+                <p>Value: <span id="txValue"></span></p>
+            </div>
+            <div class="flex justify-center mt-6">
+                <button id="closeModalBtn" class="modal-button">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- CONSTANTS ---
+        const NETWORK_DETAILS = {
+            chainName: 'Somnia Testnet',
+            chainId: '0xC428', // 50312 in hex
+            rpcUrls: ['https://rpc.ankr.com/somnia_testnet'], // Updated RPC URL
+            nativeCurrency: { name: 'STT', symbol: 'STT', decimals: 18 },
+            blockExplorerUrls: ['https://shannon-explorer.somnia.network/'],
+        };
+        const WINNING_COMBINATIONS = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+            [0, 4, 8], [2, 4, 6]             // Diagonals
+        ];
+
+        // --- SMART CONTRACT DETAILS ---
+        const CONTRACT_ADDRESS = "0x0476b50369681e36d54e809090BE83810022B4f3"; // Updated Tic-Tac-Toe Contract Address
+        const CONTRACT_ABI = [
+            {
+                "inputs": [],
+                "name": "claimWinnings",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "_winner",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "_isDraw",
+                        "type": "bool"
+                    }
+                ],
+                "name": "concludeGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "FundsWithdrawn",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "gameId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "winner",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "betAmount",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "outcome",
+                        "type": "string"
+                    }
+                ],
+                "name": "GameConcluded",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "gameId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "playerX",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "betAmount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "GameStarted",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_gameId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "joinGame",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint8",
+                        "name": "_index",
+                        "type": "uint8"
+                    }
+                ],
+                "name": "makeMove",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "gameId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "player",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint8",
+                        "name": "index",
+                        "type": "uint8"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint8",
+                        "name": "marker",
+                        "type": "uint8"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint8[9]",
+                        "name": "currentBoard",
+                        "type": "uint8[9]"
+                    }
+                ],
+                "name": "MoveMade",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "uint256",
+                        "name": "gameId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "playerO",
+                        "type": "address"
+                    }
+                ],
+                "name": "PlayerOJoined",
+                "type": "event"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "_betAmount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "startGame",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "player",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "WinningsClaimed",
+                "type": "event"
+            },
+            {
+                "stateMutability": "payable",
+                "type": "fallback"
+            },
+            {
+                "inputs": [],
+                "name": "withdrawOwnerFunds",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "stateMutability": "payable",
+                "type": "receive"
+            },
+            {
+                "inputs": [],
+                "name": "currentGame",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "playerX",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "playerO",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "betAmount",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "currentTurn",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "gameActive",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "gameConcluded",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "winner",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "gameId",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "playerBalances",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+
+        // --- DOM ELEMENTS ---
+        const gameBoard = document.getElementById('game-board');
+        const messageBox = document.getElementById('message-box');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const betButtons = document.querySelectorAll('.bet-button');
+        const resultModal = document.getElementById('resultModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalDetails = document.getElementById('modalDetails');
+        const txValue = document.getElementById('txValue');
+        const txStatus = document.getElementById('txStatus');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const forceEndGameBtn = document.getElementById('forceEndGameBtn');
+
+        // New DOM elements for wallet info
+        const connectButton = document.getElementById('connectButton');
+        const walletInfo = document.getElementById('walletInfo');
+        const walletAddressSpan = document.getElementById('walletAddress');
+        const walletBalanceSpan = document.getElementById('walletBalance');
+        const switchNetworkButton = document.getElementById('switchNetworkButton');
+
+
+        // --- GAME STATE VARIABLES ---
+        let provider = null; // Initialize as null
+        let signer = null; // Initialize as null
+        let userAddress = null; // Initialize as null
+        let contract = null; // Ethers.js Contract instance, initialize as null
+        let boardState = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X'; // Player is always 'X'
+        let isGameActive = false;
+        let betAmount = 0;
+        let isWalletConnected = false;
+        let isProcessingTransaction = false; // Flag to prevent multiple transactions
+
+        // --- EVENT LISTENERS ---
+        window.onload = () => {
+            if (window.ethereum) {
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', handleChainChanged);
+                // Attempt to connect wallet automatically on page load
+                connectWallet(true);
+            } else {
+                showMessage('Please install MetaMask or a compatible wallet to play.', 'text-red-400');
+                connectButton.textContent = 'Wallet Not Found'; // Update connect button directly
+                connectButton.disabled = true;
+                connectButton.classList.add('opacity-50', 'cursor-not-allowed');
+                startGameBtn.disabled = true; // Ensure game start is disabled
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+
+            // The main action button now handles both connect and start game
+            connectButton.addEventListener('click', () => {
+                if (!isWalletConnected) {
+                    connectWallet();
+                } else {
+                    // If already connected, this button acts as a visual placeholder
+                    // The actual game start is handled by startGameBtn
+                }
+            });
+
+            startGameBtn.addEventListener('click', () => {
+                if (!isWalletConnected) {
+                    showMessage('Please connect your wallet first.', 'text-red-400');
+                    return;
+                } else if (betAmount > 0) {
+                    startGame();
+                } else {
+                    showMessage('Please select a bet amount before starting.', 'text-red-400');
+                }
+            });
+
+            betButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const amount = parseFloat(button.getAttribute('data-bet'));
+                    setBet(amount, button);
+                });
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                resultModal.classList.add('hidden');
+            });
+
+            forceEndGameBtn.addEventListener('click', forceEndGame);
+            switchNetworkButton.addEventListener('click', async () => {
+                // This button will only be visible if on wrong network
+                if (window.ethereum) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: NETWORK_DETAILS.chainId }],
+                        });
+                        // chainChanged event will reload the page and re-check state
+                    } catch (error) {
+                        console.error("Failed to request network switch:", error);
+                        showMessage(`Failed to switch network. Please do so manually in your wallet.`, 'text-red-400');
+                    }
+                }
+            });
+
+            createBoard();
+            updateGameControlsUI(); // Initial UI update
+        };
+
+        // --- WALLET FUNCTIONS ---
+        const updateWalletUI = async () => {
+            if (isWalletConnected && userAddress) {
+                connectButton.textContent = 'Wallet Connected';
+                connectButton.disabled = true; // Disable if already connected
+                connectButton.classList.add('opacity-50', 'cursor-not-allowed');
+                walletInfo.classList.remove('hidden');
+                walletAddressSpan.textContent = userAddress.substring(0, 6) + '...' + userAddress.substring(userAddress.length - 4);
+                await updateBalance();
+            } else {
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.disabled = false;
+                connectButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                walletInfo.classList.add('hidden');
+                walletAddressSpan.textContent = '';
+                walletBalanceSpan.textContent = '';
+            }
+        };
+
+        const updateBalance = async () => {
+            if (provider && userAddress) {
+                try {
+                    const balance = await provider.getBalance(userAddress);
+                    const formattedBalance = ethers.utils.formatEther(balance);
+                    walletBalanceSpan.textContent = parseFloat(formattedBalance).toFixed(4);
+                } catch (error) {
+                    console.error("Failed to fetch balance:", error);
+                    walletBalanceSpan.textContent = 'Error';
+                }
+            }
+        };
+
+        const updateGameControlsUI = async () => {
+            if (isWalletConnected && window.ethereum.chainId === NETWORK_DETAILS.chainId && !isProcessingTransaction) {
+                // Check contract game state to enable/disable startGameBtn
+                try {
+                    const active = await contract.currentGame().gameActive; // Access gameActive from currentGame()
+                    isGameActive = active;
+                    if (isGameActive) {
+                        showMessage("A game is currently active on the contract. Finish it or use 'Force End Game'.", 'text-red-400');
+                        startGameBtn.disabled = true;
+                        startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        betButtons.forEach(btn => btn.disabled = true);
+                        forceEndGameBtn.classList.remove('hidden');
+                    } else {
+                        // Game is not active on contract
+                        if (betAmount > 0) {
+                            startGameBtn.textContent = 'Start Game';
+                            startGameBtn.disabled = false;
+                            startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        } else {
+                            startGameBtn.textContent = 'Select Bet';
+                            startGameBtn.disabled = false; // Enable to select bet
+                            startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                        betButtons.forEach(btn => btn.disabled = false);
+                        forceEndGameBtn.classList.add('hidden');
+                        showMessage('Wallet connected. Select your bet to start.', 'text-green-400');
+                    }
+                } catch (error) {
+                    console.error("Error fetching contract game state:", error);
+                    showMessage("Error verifying game state with contract. Please refresh or check network.", 'text-red-400');
+                    startGameBtn.disabled = true;
+                    startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    betButtons.forEach(btn => btn.disabled = true);
+                    forceEndGameBtn.classList.add('hidden');
+                }
+                switchNetworkButton.classList.add('hidden'); // Hide if on correct network
+            } else {
+                // Wallet not connected, or wrong network, or transaction in progress
+                startGameBtn.disabled = true;
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                betButtons.forEach(btn => btn.disabled = true);
+                forceEndGameBtn.classList.add('hidden');
+
+                if (isWalletConnected && window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
+                    switchNetworkButton.classList.remove('hidden'); // Show switch button
+                    showMessage(`Please switch your wallet manually to the ${NETWORK_DETAILS.chainName} network (Chain ID: ${parseInt(NETWORK_DETAILS.chainId, 16)}). Game disabled.`, 'text-red-400');
+                } else {
+                    switchNetworkButton.classList.add('hidden');
+                }
+            }
+        };
+
+
+        const handleAccountsChanged = async (accounts) => {
+            if (accounts.length === 0) {
+                console.log('Wallet disconnected or no accounts selected.');
+                userAddress = null;
+                isWalletConnected = false;
+                showMessage('Wallet Not Connected. Please connect.', 'text-red-400');
+            } else {
+                userAddress = accounts[0];
+                isWalletConnected = true;
+            }
+            updateWalletUI(); // Update wallet info display
+            await updateGameControlsUI(); // Update game controls based on new state
+        };
+
+        const handleChainChanged = async (chainId) => {
+            console.log('Chain changed to:', chainId);
+            // Reloading the page is often the most reliable way to handle chain changes
+            window.location.reload();
+        };
+
+        const connectWallet = async (isAutoConnect = false) => {
+            if (!window.ethereum) {
+                showMessage('MetaMask or a compatible wallet is not installed. Please install one to play.', 'text-red-400');
+                connectButton.textContent = 'Wallet Not Found';
+                connectButton.disabled = true;
+                connectButton.classList.add('opacity-50', 'cursor-not-allowed');
+                startGameBtn.disabled = true; // Ensure game start is disabled
+                startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+
+            connectButton.textContent = 'Connecting...';
+            connectButton.disabled = true;
+            connectButton.classList.add('opacity-50', 'cursor-not-allowed');
+            showMessage('Waiting for wallet connection...', 'text-yellow-300');
+
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                
+                // Request accounts; this will trigger the wallet pop-up if not already connected
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Set userAddress and isWalletConnected based on successful account retrieval
+                userAddress = accounts[0];
+                isWalletConnected = true;
+
+                // Now check network and game state
+                await checkNetworkAndGameState();
+                updateWalletUI(); // Final update of wallet UI after all checks
+                
+            } catch (error) {
+                console.error('Wallet connection error:', error);
+                if (error.code === 4001) { // User rejected request
+                    showMessage('Wallet connection rejected by user. Please approve to play.', 'text-red-400');
+                } else if (error.code === -32002) { // Request already pending
+                    showMessage('Connection request already pending. Please check your wallet.', 'text-yellow-300');
+                } else {
+                    showMessage('Wallet connection failed. Please try again.', 'text-red-400');
+                }
+                // Reset button state and connection flags on failure
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.disabled = false;
+                connectButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                isWalletConnected = false;
+                updateGameControlsUI(); // Update game controls to disabled state
+            }
+        };
+
+        // --- CONTRACT STATE CHECK ---
+        const getContractGameState = async () => {
+            if (!contract || !isWalletConnected || window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
+                // This state should ideally be caught by updateGameControlsUI, but as a safeguard
+                updateGameControlsUI();
+                return;
+            }
+
+            try {
+                // Fetch the entire currentGame struct
+                const currentGameState = await contract.currentGame();
+                isGameActive = currentGameState.gameActive; // Access gameActive from the returned struct
+                updateGameControlsUI(); // Re-evaluate game controls based on contract state
+            } catch (error) {
+                console.error("Error fetching contract game state:", error);
+                showMessage("Error verifying game state with contract. Please refresh or check network.", 'text-red-400');
+                updateGameControlsUI(); // Ensure controls are disabled on error
+            }
+        };
+
+
+        // --- GAME LOGIC FUNCTIONS ---
+        const createBoard = () => {
+            gameBoard.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.setAttribute('data-index', i);
+                cell.addEventListener('click', handleCellClick);
+                gameBoard.appendChild(cell);
+            }
+        };
+
+        const handleCellClick = (event) => {
+            const cell = event.target;
+            const index = cell.getAttribute('data-index');
+
+            if (isGameActive && boardState[index] === '') {
+                boardState[index] = currentPlayer;
+                cell.textContent = currentPlayer;
+                cell.classList.add(`cell-${currentPlayer.toLowerCase()}`, 'disabled');
+
+                if (checkWin()) {
+                    endGame(`${currentPlayer} wins!`, userAddress, false);
+                    return;
+                }
+                if (checkDraw()) {
+                    endGame(`It's a draw!`, ethers.constants.AddressZero, true);
+                    return;
+                }
+
+                currentPlayer = 'O';
+                showMessage("Computer's turn...", 'text-gray-200');
+                gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
+                setTimeout(computerMove, 1000);
+            }
+        };
+
+        const computerMove = () => {
+            let moveIndex = -1;
+            const availableMoves = boardState
+                .map((cell, index) => cell === '' ? index : null)
+                .filter(val => val !== null);
+            
+            // AI always plays strategically (100% strategic chance)
+            // 1. Check for winning moves
+            for (const combination of WINNING_COMBINATIONS) {
+                const [a, b, c] = combination;
+                if (boardState[a] === 'O' && boardState[b] === 'O' && boardState[c] === '') moveIndex = c;
+                if (boardState[a] === 'O' && boardState[c] === 'O' && boardState[b] === '') moveIndex = b;
+                if (boardState[b] === 'O' && boardState[c] === 'O' && boardState[a] === '') moveIndex = a;
+                if (moveIndex !== -1) break;
+            }
+
+            // 2. Block the player's winning moves
+            if (moveIndex === -1) {
+                for (const combination of WINNING_COMBINATIONS) {
+                    const [a, b, c] = combination;
+                    if (boardState[a] === 'X' && boardState[b] === 'X' && boardState[c] === '') moveIndex = c;
+                    if (boardState[a] === 'X' && boardState[c] === 'X' && boardState[b] === '') moveIndex = b;
+                    if (boardState[b] === 'X' && boardState[c] === 'X' && boardState[a] === '') moveIndex = a;
+                    if (moveIndex !== -1) break;
+                }
+            }
+
+            // 3. Take the center
+            if (moveIndex === -1 && boardState[4] === '') {
+                moveIndex = 4;
+            }
+
+            // 4. Take a corner
+            if (moveIndex === -1) {
+                const corners = [0, 2, 6, 8];
+                const availableCorners = corners.filter(index => boardState[index] === '');
+                if (availableCorners.length > 0) {
+                    moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
+                }
+            }
+
+            // 5. Take any remaining available spot
+            if (moveIndex === -1) {
+                moveIndex = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+            
+
+            boardState[moveIndex] = 'O';
+            const cell = gameBoard.querySelector(`[data-index="${moveIndex}"]`);
+            cell.textContent = 'O';
+            cell.classList.add('cell-o', 'disabled');
+
+            if (checkWin()) {
+                endGame('Computer wins!', ethers.constants.AddressZero, false);
+                return;
+            }
+            if (checkDraw()) {
+                endGame(`It's a draw!`, ethers.constants.AddressZero, true);
+                return;
+            }
+
+            currentPlayer = 'X';
+            showMessage("Your turn...", 'text-gray-200');
+            gameBoard.querySelectorAll('.cell').forEach(c => {
+                if (boardState[c.getAttribute('data-index')] === '') {
+                    c.classList.remove('disabled');
+                }
+            });
+        };
+
+        const checkWin = () => {
+            return WINNING_COMBINATIONS.some(combination => {
+                return combination.every(index => {
+                    return boardState[index] === currentPlayer;
+                });
+            });
+        };
+
+        const checkDraw = () => {
+            return boardState.every(cell => cell !== '');
+        };
+
+        const startGame = async () => {
+            if (!isWalletConnected || window.ethereum.chainId !== NETWORK_DETAILS.chainId) {
+                showMessage('Wallet not connected or on wrong network. Please fix.', 'text-red-400');
+                return;
+            }
+            if (betAmount === 0) {
+                showMessage('Please select a bet amount.', 'text-red-400');
+                return;
+            }
+            if (isProcessingTransaction) {
+                showMessage('Transaction already in progress. Please wait.', 'text-yellow-300');
+                return;
+            }
+
+            // Crucial: Re-check contract state immediately before sending transaction
+            try {
+                const currentGameState = await contract.currentGame();
+                if (currentGameState.gameActive) {
+                    showMessage("Failed to place bet: A game is already active on the contract. Please complete it or use 'Force End Game'.", 'text-red-400');
+                    updateGameControlsUI(); // Sync UI
+                    return;
+                }
+            } catch (error) {
+                console.error("Error checking contract game state before starting:", error);
+                showMessage("Error verifying game state with contract. Please try again.", 'text-red-400');
+                return;
+            }
+
+            showMessage(`Placing bet of ${betAmount} STT... Confirm in wallet.`, 'text-yellow-300');
+            isProcessingTransaction = true;
+            updateGameControlsUI(); // Disable controls while transaction is pending
+            
+            try {
+                const valueInWei = ethers.utils.parseEther(betAmount.toString());
+                const tx = await contract.startGame(valueInWei, { value: valueInWei });
+                showMessage("Transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+                showMessage(`Bet of ${betAmount} STT placed. Game starting...`, 'text-green-400');
+
+                boardState = ['', '', '', '', '', '', '', '', ''];
+                currentPlayer = 'X';
+                isGameActive = true;
+
+                gameBoard.querySelectorAll('.cell').forEach(cell => {
+                    cell.textContent = '';
+                    cell.classList.remove('cell-x', 'cell-o', 'disabled');
+                });
+                
+                showMessage("Game started! Your turn...", 'text-gray-200');
+                
+            } catch (error) {
+                console.error("Error starting game or placing bet:", error);
+                if (error.code === 4001) { // User rejected
+                    showMessage("Transaction rejected by user.", 'text-red-400');
+                } else if (error.data && error.data.originalError && error.data.originalError.data && error.data.originalError.data.includes("Game is already active")) {
+                    showMessage("Failed to place bet: A game is already active on the contract. Please refresh to sync.", 'text-red-400');
+                } else {
+                    showMessage(`Failed to place bet. ${error.message || 'Unknown error.'}`, 'text-red-400');
+                }
+            } finally {
+                isProcessingTransaction = false;
+                updateGameControlsUI(); // Re-enable or update controls based on final state
+            }
+        };
+
+        const endGame = async (message, winnerAddress, isDraw) => {
+            isGameActive = false;
+            showMessage(message, 'text-green-400');
+            gameBoard.querySelectorAll('.cell').forEach(c => c.classList.add('disabled'));
+
+            isProcessingTransaction = true;
+            updateGameControlsUI(); // Disable controls during payout transaction
+
+            showMessage("Ending game and processing payout...", 'text-yellow-300');
+            try {
+                const tx = await contract.concludeGame(winnerAddress, isDraw); // Changed to concludeGame
+                showMessage("Payout transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+
+                let outcomeText = '';
+                let payoutValue = 0;
+                // Note: The contract's concludeGame event will determine actual payout.
+                // For client-side display, we'll use the game's determined outcome.
+                if (isDraw) {
+                    outcomeText = 'Draw';
+                    payoutValue = betAmount;
+                } else if (winnerAddress === userAddress) {
+                    outcomeText = 'Win';
+                    payoutValue = betAmount * 2;
+                } else {
+                    outcomeText = 'Loss';
+                    payoutValue = -betAmount;
+                }
+
+                showResultModal(`${outcomeText}!`, `Game concluded. Check your wallet for ${payoutValue.toFixed(2)} STT.`, true, payoutValue);
+                
+            } catch (error) {
+                console.error("Error ending game or processing payout:", error);
+                if (error.code === 4001) { // User rejected
+                    showResultModal("Transaction Rejected", `Payout transaction was rejected by user.`, false, 0);
+                } else {
+                    showResultModal("Transaction Failed", `Failed to process payout. ${error.message || 'Unknown error.'}`, false, 0);
+                }
+            } finally {
+                isProcessingTransaction = false;
+                updateGameControlsUI(); // Re-enable or update controls
+            }
+        };
+
+        const forceEndGame = async () => {
+            if (!isWalletConnected || !contract || isProcessingTransaction) {
+                showMessage('Wallet not connected, contract not initialized, or transaction in progress.', 'text-red-400');
+                return;
+            }
+            showMessage("Attempting to force end game... Confirm in wallet.", 'text-yellow-300');
+            isProcessingTransaction = true;
+            updateGameControlsUI(); // Disable controls during force end transaction
+            try {
+                // Call concludeGame with address(0) and false to signify a forced end/loss for current player
+                const tx = await contract.concludeGame(ethers.constants.AddressZero, false); 
+                showMessage("Force end game transaction sent! Waiting for confirmation...", 'text-yellow-300');
+                await tx.wait();
+                showMessage("Game state reset on contract. You can now start a new game.", 'text-green-400');
+                // Re-sync UI after successful force end
+                isGameActive = false; // Manually set to false after successful force end
+                await getContractGameState(); // Re-check actual contract state
+            } catch (error) {
+                console.error("Error forcing end game:", error);
+                if (error.code === 4001) { // User rejected
+                    showMessage(`Force end game rejected by user.`, 'text-red-400');
+                } else {
+                    showMessage(`Failed to force end game. ${error.message || 'Unknown error.'}`, 'text-red-400');
+                }
+            } finally {
+                isProcessingTransaction = false;
+                updateGameControlsUI(); // Re-enable or update controls
+            }
+        };
+        
+        const setBet = (amount, button) => {
+            betAmount = amount;
+            betButtons.forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+            showMessage(`Bet set to ${betAmount} STT.`, 'text-gray-200');
+            updateGameControlsUI(); // Re-evaluate button state after bet selection
+        };
+        
+        const showMessage = (message, colorClass = 'text-gray-200') => {
+            messageBox.innerHTML = message;
+            messageBox.className = `message-box ${colorClass}`; // Use base class and then add color
+        };
+
+        const showResultModal = (title, message, isSuccess, transactionValue) => {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            
+            if (isSuccess) {
+                txStatus.textContent = 'Success';
+                txStatus.classList.remove('text-red-400');
+                txStatus.classList.add('text-green-400');
+                txValue.textContent = `${transactionValue >= 0 ? '+' : ''}${transactionValue.toFixed(2)} STT`;
+            } else {
+                txStatus.textContent = 'Failed';
+                txStatus.classList.remove('text-green-400');
+                txStatus.classList.add('text-red-400');
+                txValue.textContent = 'N/A';
+            }
+            modalDetails.classList.remove('hidden');
+            resultModal.classList.remove('hidden');
+        };
+
+    </script>
 </body>
 </html>
