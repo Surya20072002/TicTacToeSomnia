@@ -759,8 +759,8 @@
             if (isWalletConnected && window.ethereum.chainId === NETWORK_DETAILS.chainId && !isProcessingTransaction) {
                 // Check contract game state to enable/disable startGameBtn
                 try {
-                    const active = await contract.currentGame().gameActive; // Access gameActive from currentGame()
-                    isGameActive = active;
+                    const currentGameState = await contract.currentGame();
+                    isGameActive = currentGameState.gameActive; // Access gameActive from the returned struct
                     if (isGameActive) {
                         showMessage("A game is currently active on the contract. Finish it or use 'Force End Game'.", 'text-red-400');
                         startGameBtn.disabled = true;
@@ -864,17 +864,19 @@
                 console.error('Wallet connection error:', error);
                 if (error.code === 4001) { // User rejected request
                     showMessage('Wallet connection rejected by user. Please approve to play.', 'text-red-400');
+                    isWalletConnected = false; // User explicitly rejected
                 } else if (error.code === -32002) { // Request already pending
                     showMessage('Connection request already pending. Please check your wallet.', 'text-yellow-300');
+                    // isWalletConnected remains true if accounts were already retrieved in a prior pending request
                 } else {
                     showMessage('Wallet connection failed. Please try again.', 'text-red-400');
+                    isWalletConnected = false; // Generic failure, assume not connected
                 }
-                // Reset button state and connection flags on failure
+                
                 connectButton.textContent = 'Connect Wallet';
                 connectButton.disabled = false;
                 connectButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                isWalletConnected = false;
-                updateGameControlsUI(); // Update game controls to disabled state
+                updateGameControlsUI(); // Update game controls based on the new (possibly failed) connection state
             }
         };
 
