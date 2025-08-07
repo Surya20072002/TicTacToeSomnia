@@ -1,167 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decentralized Tic-Tac-Toe on Somnia</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #1a1a2e;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .container {
-            background-color: #2a2a4a;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
-            text-align: center;
-            width: 100%;
-            max-width: 500px;
-        }
-
-        h1 {
-            color: #e94560;
-            margin-bottom: 20px;
-        }
-
-        #status {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            height: 30px;
-        }
-
-        #game-board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            width: 300px;
-            height: 300px;
-            margin: 0 auto 20px;
-        }
-
-        .cell {
-            width: 100px;
-            height: 100px;
-            background-color: #4a4a6e;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 4em;
-            font-weight: bold;
-            color: #fff;
-            cursor: pointer;
-            border: 2px solid #3c3c5e;
-            transition: background-color 0.3s;
-        }
-
-        .cell:hover {
-            background-color: #5c5c8e;
-        }
-
-        .cell[data-player="1"] { color: #e94560; }
-        .cell[data-player="2"] { color: #87e9f7; }
-
-        .game-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .betting-options {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .bet-button, #connect-wallet-button {
-            background-color: #5d5d8d;
-            border: none;
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 4px 2px;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: background-color 0.3s;
-        }
-
-        .bet-button:hover, #connect-wallet-button:hover {
-            background-color: #7a7ac9;
-        }
-
-        .bet-button.selected {
-            background-color: #e94560;
-            border: 2px solid #e94560;
-        }
-
-        #start-game-button {
-            background-color: #1b998b;
-            color: white;
-            padding: 15px 30px;
-            font-size: 1.2em;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        #start-game-button:hover {
-            background-color: #178377;
-        }
-
-        #start-game-button:disabled {
-            background-color: #4a4a6e;
-            cursor: not-allowed;
-        }
-
-        .hidden {
-            display: none;
-        }
-    </style>
-</head>
-<body class="flex items-center justify-center min-h-screen text-gray-100 p-4">
-    <div class="container">
-        <h1>Somnia Tic-Tac-Toe</h1>
-        <div id="status">Loading...</div>
-        
-        <div id="game-board"></div>
-
-        <div class="game-controls">
-            <button id="connect-wallet-button" class="hidden">Connect Wallet</button>
-
-            <div id="betting-section" class="hidden">
-                <p>Choose your bet amount (in STT):</p>
-                <div class="betting-options">
-                    <button class="bet-button" data-value="0.01">0.01</button>
-                    <button class="bet-button" data-value="0.05">0.05</button>
-                    <button class="bet-button" data-value="0.1">0.1</button>
-                    <button class="bet-button" data-value="0.5">0.5</button>
-                    <button class="bet-button" data-value="1">1</button>
-                </div>
-                <button id="start-game-button" disabled>Start Game</button>
-            </div>
-            
-            <div id="message-box" class="h-10 text-xl font-semibold text-red-400"></div>
-        </div>
-    </div>
-
-    <script>
+<script>
         // --- Network and DApp Configuration ---
         const somniaNetwork = {
             chainId: '0xC488', // 50312 in hex
@@ -630,13 +467,14 @@
 
         // Initial check on page load
         window.onload = () => {
-            messageBox.textContent = 'Loading...';
-            if (window.ethereum) {
-                connectWallet();
-            } else {
-                messageBox.textContent = "MetaMask not found. Please install it.";
-                connectWalletButton.classList.add('hidden');
-            }
+            setTimeout(() => {
+                if (window.ethereum) {
+                    connectWallet();
+                } else {
+                    statusElement.textContent = "MetaMask not found. Please install it.";
+                    connectWalletButton.classList.remove('hidden');
+                }
+            }, 500); // Add a 500ms delay to give MetaMask time to load
         };
     </script>
 </body>
